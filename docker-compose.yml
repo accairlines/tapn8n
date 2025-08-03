@@ -57,7 +57,7 @@ services:
   trainer:
     build: ./AETPrediction/trainer
     volumes:
-      - ./data:/app/data
+      - ../data:/app/data
       - ./logs:/app/logs
       - ./models:/app/models
     environment:
