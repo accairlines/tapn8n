@@ -1,0 +1,12 @@
+[Unit]
+Description=AET Predictor Django API
+After=network.target
+
+[Service]
+User=www-data
+WorkingDirectory=/app
+ExecStart=python manage.py runserver 0.0.0.0:8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target 
