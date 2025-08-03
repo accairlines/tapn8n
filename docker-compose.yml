@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+  nginx:
+    build: 
+      context: ./nginx
+      dockerfile: Dockerfile
+    volumes:
+      - /var/log/docker/spa:/var/log/nginx/
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/htpasswd:/etc/nginx/.htpasswd
+    ports:
+      - 80:80
+      - 443:443
+    restart: always
+    depends_on:
+      - n8n
+      - llama
+    networks:
+      - nginx_network
+      - n8n_network
+      - llama_network
+
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=Europe/Lisbon
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=hubtmadmin
+      - N8N_BASIC_AUTH_PASSWORD=HubTM2023-12n8n
+      - N8N_HOST=hubtmn8n.accairlines.com
+      - WEBHOOK_TUNNEL_URL=http://hubtmn8n.accairlines.com:5678
+      - N8N_ENABLE_NODE_AUTOMATICALLY=true
+      - N8N_COMMUNITY_NODES_ENABLED=true
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - n8n_network
+
+  llama:
+    image: ollama/ollama
+    container_name: llama
+    restart: always
+    volumes:
+      - llama_data:/root/.ollama
+    networks:
+      - llama_network
+    expose:
+      - "11434"
+         
+  trainer:
+    build: ./AETPrediction/trainer
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - trainer_network
+    restart: unless-stopped
+    
+  predictor:
+    build: ./AETPrediction/predictor
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - trainer
+    networks:
+      - predictor_network
+    restart: unless-stopped 
+
+networks:
+  nginx_network:
+    driver: bridge
+  n8n_network:
+    driver: bridge
+  llama_network:
+    driver: bridge
+  trainer_network:
+    driver: bridge
+  predictor_network:
+    driver: bridge
+
+volumes:
+  n8n_data:
+    driver: local
+  llama_data:
+    driver: local
