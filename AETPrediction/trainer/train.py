@@ -341,7 +341,6 @@ def train_models(features, targets):
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(
         features_numeric, targets, test_size=0.2, random_state=42
-        features_numeric, targets, test_size=0.2, random_state=42
     )
     
     # Scale features
