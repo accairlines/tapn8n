@@ -18,7 +18,7 @@ services:
       - llama
       - predictor
     networks:
-      - nginx_network
+      - web_network
       - n8n_network
       - llama_network
       - predictor_network
@@ -86,7 +86,7 @@ services:
     restart: unless-stopped 
 
 networks:
-  nginx_network:
+  web_network:
     driver: bridge
   n8n_network:
     driver: bridge
