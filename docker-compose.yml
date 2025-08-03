@@ -3,7 +3,7 @@ version: "3.8"
 services:
   nginx:
     build: 
-      context: ./nginx
+      context: .
       dockerfile: Dockerfile
     volumes:
       - /var/log/docker/n8n:/var/log/nginx/
@@ -20,6 +20,7 @@ services:
       - nginx_network
       - n8n_network
       - llama_network
+      - predictor_network
 
   n8n:
     image: n8nio/n8n
