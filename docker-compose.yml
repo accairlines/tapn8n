@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  nginx:
+  web:
     build: 
       context: .
       dockerfile: Dockerfile
@@ -16,6 +16,7 @@ services:
     depends_on:
       - n8n
       - llama
+      - predictor
     networks:
       - nginx_network
       - n8n_network
