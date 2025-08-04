@@ -78,7 +78,7 @@ def load_data():
             return []
         df_list = []
         for f in files:
-            df = pd.read_csv(f, encoding='latin1')
+            df = pd.read_csv(f, encoding='latin1', low_memory=False)
             if usecols is not None:
                 missing_cols = [col for col in usecols if col not in df.columns]
                 for col in missing_cols:
@@ -99,7 +99,7 @@ def load_data():
             logging.warning(f"File not found: {file_path}, returning empty list")
             return []
         try:
-            df = pd.read_csv(file_path, usecols=usecols)
+            df = pd.read_csv(file_path, usecols=usecols, low_memory=False)
             return df.to_dict('records')
         except Exception as e:
             logging.warning(f"Error reading {file_path}: {str(e)}, returning empty list")
@@ -114,7 +114,7 @@ def load_data():
         
         try:
             acars_df = pd.concat([
-                pd.read_csv(f, usecols=acars_cols) for f in acars_files
+                pd.read_csv(f, usecols=acars_cols, low_memory=False) for f in acars_files
             ], ignore_index=True)
             acars_df['CALLSIGN'] = acars_df['FLIGHT'].str.replace('TP', 'TAP')
             return acars_df.to_dict('records')
