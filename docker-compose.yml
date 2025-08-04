@@ -61,8 +61,8 @@ services:
     build: ./AETPrediction/trainer
     volumes:
       - ../data:/app/data
-      - ./logs:/app/logs
-      - ./models:/app/models
+      - ../logs:/app/logs
+      - ../models:/app/models
     environment:
       - PYTHONUNBUFFERED=1
       - AET_BASE_PATH=/app
@@ -79,10 +79,12 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./logs:/app/logs
-      - ./models:/app/models
+      - ../logs:/app/logs
+      - ../models:/app/models
     environment:
       - PYTHONUNBUFFERED=1
+      - AET_BASE_PATH=/app
+      - AET_MODEL_PATH=models/model.pkl
     depends_on:
       - trainer
     networks:
