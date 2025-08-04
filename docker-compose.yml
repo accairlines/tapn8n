@@ -39,6 +39,7 @@ services:
       - WEBHOOK_TUNNEL_URL=http://hubtmn8n.accairlines.com:5678
       - N8N_ENABLE_NODE_AUTOMATICALLY=true
       - N8N_COMMUNITY_NODES_ENABLED=true
+      - N8N_RUNNERS_ENABLED=true
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
