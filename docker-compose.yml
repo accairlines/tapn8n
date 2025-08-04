@@ -66,8 +66,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - AET_BASE_PATH=/app
-      - AET_DATA_PATH=data
-      - AET_LOG_PATH=log
+      - AET_DATA_PATH=/data
+      - AET_LOG_PATH=/log
       - AET_MODEL_PATH=models/model.pkl
     networks:
       - trainer_network
@@ -84,7 +84,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - AET_BASE_PATH=/app
-      - AET_MODEL_PATH=models/model.pkl
+      - AET_MODEL_PATH=/models/model.pkl
     depends_on:
       - trainer
     networks:
