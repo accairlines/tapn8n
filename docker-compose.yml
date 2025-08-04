@@ -52,7 +52,7 @@ services:
     networks:
       - llama_network
     expose:
-      - "11434"
+      - "11434:11434"
          
   trainer:
     build: ./AETPrediction/trainer
