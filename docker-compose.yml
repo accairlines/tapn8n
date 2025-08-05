@@ -65,10 +65,9 @@ services:
       - /var/models:/app/models
     environment:
       - PYTHONUNBUFFERED=1
-      - AET_BASE_PATH=/app
-      - AET_DATA_PATH=/data
-      - AET_LOG_PATH=/log
-      - AET_MODEL_PATH=models/model.pkl
+      - AET_DATA_PATH=/app/data
+      - AET_LOG_PATH=/app/logs
+      - AET_MODEL_PATH=/app/models
     networks:
       - trainer_network
     container_name: trainer
@@ -83,8 +82,7 @@ services:
       - /var/models:/app/models
     environment:
       - PYTHONUNBUFFERED=1
-      - AET_BASE_PATH=/app
-      - AET_MODEL_PATH=/models/model.pkl
+      - AET_MODEL_PATH=/var/models/model.pkl
     depends_on:
       - trainer
     networks:
