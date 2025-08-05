@@ -23,6 +23,7 @@ services:
       - n8n_network
       - llama_network
       - predictor_network
+    restart: unless-stopped 
 
   n8n:
     image: n8nio/n8n
@@ -45,6 +46,7 @@ services:
       - n8n_data:/home/node/.n8n
     networks:
       - n8n_network
+    restart: unless-stopped 
 
   llama:
     image: ollama/ollama
@@ -56,6 +58,7 @@ services:
       - llama_network
     expose:
       - "11434:11434"
+    restart: unless-stopped 
          
   trainer:
     build: ./AETPrediction/trainer
@@ -71,7 +74,6 @@ services:
     networks:
       - trainer_network
     container_name: trainer
-    restart: unless-stopped
     
   predictor:
     build: ./AETPrediction/predictor
