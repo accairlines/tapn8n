@@ -22,10 +22,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Set base path from environment or default
-BASE_PATH = os.environ.get('AET_BASE_PATH', r'C:\Users\PedroSarmento\source\repos\hubtmsuite')
-DATA_PATH = os.environ.get('AET_DATA_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'data'))
-LOG_PATH = os.environ.get('AET_LOG_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'logs'))
-MODEL_PATH = os.environ.get('AET_MODEL_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'model.pkl'))
+BASE_PATH = os.environ.get('AET_BASE_PATH')
+DATA_PATH = os.environ.get('AET_DATA_PATH')
+LOG_PATH = os.environ.get('AET_LOG_PATH')
+MODEL_PATH = os.environ.get('AET_MODEL_PATH')
 
 # Ensure log directory exists
 os.makedirs(LOG_PATH, exist_ok=True)
@@ -107,7 +107,7 @@ def load_data():
 
     def read_acars_files():
         """Read ACARS files and return as list of dicts, return empty list if no files found"""
-        acars_files = glob.glob(os.path.join(DATA_PATH, 'acars_*.csv'))
+        acars_files = glob.glob(os.path.join(BASE_PATH, DATA_PATH, 'acars_*.csv'))
         if not acars_files:
             logging.warning("No ACARS files found, returning empty list")
             return []
@@ -123,18 +123,18 @@ def load_data():
             return []
 
     # Load main tables (supporting multiple files)
-    flights = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'flight_*.csv'), usecols=flights_cols)
-    flight_plan = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'fp_arinc633_fp_*.csv'), usecols=flight_plan_cols)
-    waypoints = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'fp_arinc633_wp_*.csv'), usecols=waypoints_cols)
-    mel = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'fp_arinc633_mel_*.csv'), usecols=mel_cols)
+    flights = read_multi_csv_to_dicts(os.path.join(BASE_PATH, DATA_PATH, 'flight_*.csv'), usecols=flights_cols)
+    flight_plan = read_multi_csv_to_dicts(os.path.join(BASE_PATH, DATA_PATH, 'fp_arinc633_fp_*.csv'), usecols=flight_plan_cols)
+    waypoints = read_multi_csv_to_dicts(os.path.join(BASE_PATH, DATA_PATH, 'fp_arinc633_wp_*.csv'), usecols=waypoints_cols)
+    mel = read_multi_csv_to_dicts(os.path.join(BASE_PATH, DATA_PATH, 'fp_arinc633_mel_*.csv'), usecols=mel_cols)
     
     # Load ACARS data and replace TP with TAP in FLIGHT column
     acars = read_acars_files()
         
     # Load base tables
-    equipments = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'equipments.csv'), usecols=equipments_cols)
-    aircrafts = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'aircrafts.csv'), usecols=aircrafts_cols)
-    stations = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'stations_utc.csv'), usecols=stations_cols)
+    equipments = read_single_csv_to_dicts(os.path.join(BASE_PATH, DATA_PATH, 'equipments.csv'), usecols=equipments_cols)
+    aircrafts = read_single_csv_to_dicts(os.path.join(BASE_PATH, DATA_PATH, 'aircrafts.csv'), usecols=aircrafts_cols)
+    stations = read_single_csv_to_dicts(os.path.join(BASE_PATH, DATA_PATH, 'stations_utc.csv'), usecols=stations_cols)
 
     logging.info(f"Loaded {len(flights)} flights (as dicts)")
 
@@ -469,7 +469,7 @@ def save_features_targets_to_csv(features, targets):
     logging.info("Saving features and targets to CSV files for caching...")
     
     # Create cache directory if it doesn't exist
-    cache_dir = os.path.join(DATA_PATH, 'cache')
+    cache_dir = os.path.join(BASE_PATH, DATA_PATH, 'cache')
     os.makedirs(cache_dir, exist_ok=True)
     
     # Save features
@@ -505,11 +505,11 @@ def rename_csv_files_to_done():
     
     # Get all CSV files in the data directory
     csv_patterns = [
-        os.path.join(DATA_PATH, 'flight_*.csv'),
-        os.path.join(DATA_PATH, 'fp_arinc633_fp_*.csv'),
-        os.path.join(DATA_PATH, 'fp_arinc633_wp_*.csv'),
-        os.path.join(DATA_PATH, 'fp_arinc633_mel_*.csv'),
-        os.path.join(DATA_PATH, 'acars_*.csv')
+        os.path.join(BASE_PATH, DATA_PATH, 'flight_*.csv'),
+        os.path.join(BASE_PATH, DATA_PATH, 'fp_arinc633_fp_*.csv'),
+        os.path.join(BASE_PATH, DATA_PATH, 'fp_arinc633_wp_*.csv'),
+        os.path.join(BASE_PATH, DATA_PATH, 'fp_arinc633_mel_*.csv'),
+        os.path.join(BASE_PATH, DATA_PATH, 'acars_*.csv')
     ]
     
     renamed_count = 0
@@ -537,7 +537,7 @@ def rename_csv_files_to_done():
 
 def load_features_targets_from_csv():
     """Load features and targets from CSV files if they exist and are not empty"""
-    cache_dir = os.path.join(DATA_PATH, 'cache')
+    cache_dir = os.path.join(BASE_PATH, DATA_PATH, 'cache')
     features_path = os.path.join(cache_dir, 'features.csv')
     targets_path = os.path.join(cache_dir, 'targets.csv')
     metadata_path = os.path.join(cache_dir, 'metadata.json')
