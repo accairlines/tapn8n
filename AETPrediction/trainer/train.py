@@ -536,29 +536,56 @@ def rename_csv_files_to_done():
 
 
 def load_features_targets_from_csv():
-    """Load features and targets from CSV files if they exist"""
+    """Load features and targets from CSV files if they exist and are not empty"""
     cache_dir = os.path.join(DATA_PATH, 'cache')
     features_path = os.path.join(cache_dir, 'features.csv')
     targets_path = os.path.join(cache_dir, 'targets.csv')
     metadata_path = os.path.join(cache_dir, 'metadata.json')
     
-    if os.path.exists(features_path) and os.path.exists(targets_path):
+    # Check if both files exist and are not empty
+    def is_file_valid(file_path):
+        if not os.path.exists(file_path):
+            return False
+        # Check if file is empty (size == 0) or contains only whitespace/headers
+        try:
+            with open(file_path, 'r') as f:
+                content = f.read().strip()
+                return len(content) > 0
+        except Exception:
+            return False
+    
+    if is_file_valid(features_path) and is_file_valid(targets_path):
         logging.info("Loading features and targets from cached CSV files...")
         
-        features = pd.read_csv(features_path)
-        targets = pd.read_csv(targets_path)
-        
-        # Load and log metadata
-        if os.path.exists(metadata_path):
-            import json
-            with open(metadata_path, 'r') as f:
-                metadata = json.load(f)
-            logging.info(f"Loaded cached data - Features: {metadata['features_shape']}, Targets: {metadata['targets_shape']}")
-            logging.info(f"Cached data saved at: {metadata['saved_at']}")
-        
-        return features, targets
+        try:
+            features = pd.read_csv(features_path)
+            targets = pd.read_csv(targets_path)
+            
+            # Check if DataFrames are empty
+            if features.empty or targets.empty:
+                logging.info("Cached CSV files are empty, will process new data")
+                return None, None
+            
+            # Load and log metadata
+            if os.path.exists(metadata_path):
+                import json
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                logging.info(f"Loaded cached data - Features: {metadata['features_shape']}, Targets: {metadata['targets_shape']}")
+                logging.info(f"Cached data saved at: {metadata['saved_at']}")
+            
+            return features, targets
+            
+        except (pd.errors.EmptyDataError, pd.errors.ParserError) as e:
+            logging.warning(f"Error reading cached CSV files: {e}")
+            logging.info("Will process new data instead")
+            return None, None
+        except Exception as e:
+            logging.warning(f"Unexpected error reading cached CSV files: {e}")
+            logging.info("Will process new data instead")
+            return None, None
     else:
-        logging.info("No cached CSV files found")
+        logging.info("No valid cached CSV files found")
         return None, None
 
 

@@ -3,8 +3,13 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import logging
+import os
 
-logger = logging.getLogger(__name__)
+# Set base path from environment or default
+BASE_PATH = os.environ.get('AET_BASE_PATH', r'C:\Users\PedroSarmento\source\repos\hubtmsuite')
+DATA_PATH = os.environ.get('AET_DATA_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'data'))
+LOG_PATH = os.environ.get('AET_LOG_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'logs'))
+MODEL_PATH = os.environ.get('AET_MODEL_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'model.pkl'))
 
 class ModelLoader:
     """Handles model loading and prediction"""
