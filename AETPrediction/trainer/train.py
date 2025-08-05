@@ -72,6 +72,7 @@ def load_data():
 
     def read_multi_csv_to_dicts(pattern, usecols=None):
         files = glob.glob(pattern)
+        logging.warning(f"File: {files}, starting to read")
         if not files:
             logging.warning(f"No files found for pattern: {pattern}, returning empty list")
             return []
@@ -90,15 +91,19 @@ def load_data():
         else:
             # handle the case where all files are empty
             df = pd.DataFrame(columns=usecols if usecols else [])
+        logging.warning(f"File: {files}, read successfully, returning {len(df)} records")
         return df.to_dict('records')
 
     def read_single_csv_to_dicts(file_path, usecols=None):
         """Read a single CSV file and return as list of dicts, return empty list if file doesn't exist"""
+        logging.warning(f"File: {file_path}, starting to read")
         if not os.path.exists(file_path):
             logging.warning(f"File not found: {file_path}, returning empty list")
             return []
         try:
             df = pd.read_csv(file_path, usecols=usecols, low_memory=False)
+            
+            logging.warning(f"File: {file_path}, read successfully, returning {len(df)} records")
             return df.to_dict('records')
         except Exception as e:
             logging.warning(f"Error reading {file_path}: {str(e)}, returning empty list")
@@ -107,6 +112,7 @@ def load_data():
     def read_acars_files():
         """Read ACARS files and return as list of dicts, return empty list if no files found"""
         acars_files = glob.glob(os.path.join(DATA_PATH, 'acars_*.csv'))
+        logging.warning(f"File: {acars_files}, starting to read")
         if not acars_files:
             logging.warning("No ACARS files found, returning empty list")
             return []
@@ -116,6 +122,7 @@ def load_data():
                 pd.read_csv(f, usecols=acars_cols, low_memory=False) for f in acars_files
             ], ignore_index=True)
             acars_df['CALLSIGN'] = acars_df['FLIGHT'].str.replace('TP', 'TAP')
+            logging.warning(f"File: {acars_files}, read successfully, returning {len(acars_df)} records")
             return acars_df.to_dict('records')
         except Exception as e:
             logging.warning(f"Error reading ACARS files: {str(e)}, returning empty list")
