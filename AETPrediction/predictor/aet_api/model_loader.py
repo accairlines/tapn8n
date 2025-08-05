@@ -6,16 +6,15 @@ import logging
 import os
 
 # Set base path from environment or default
-BASE_PATH = os.environ.get('AET_BASE_PATH', r'C:\Users\PedroSarmento\source\repos\hubtmsuite')
-DATA_PATH = os.environ.get('AET_DATA_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'data'))
-LOG_PATH = os.environ.get('AET_LOG_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'logs'))
-MODEL_PATH = os.environ.get('AET_MODEL_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'model.pkl'))
+DATA_PATH = os.environ.get('AET_DATA_PATH')
+LOG_PATH = os.environ.get('AET_LOG_PATH')
+MODEL_PATH = os.environ.get('AET_MODEL_PATH')
 
 class ModelLoader:
     """Handles model loading and prediction"""
     
-    def __init__(self, model_path='/app/model.pkl'):
-        self.model_path = model_path
+    def __init__(self):
+        self.model_path = os.path.join(MODEL_PATH, 'model.pkl')
         self.model_data = None
         self.load_model()
     
@@ -24,10 +23,10 @@ class ModelLoader:
         try:
             with open(self.model_path, 'rb') as f:
                 self.model_data = pickle.load(f)
-            logger.info(f"Model loaded successfully from {self.model_path}")
-            logger.info(f"Model trained on: {self.model_data['training_date']}")
+            logging.info(f"Model loaded successfully from {self.model_path}")
+            logging.info(f"Model trained on: {self.model_data['training_date']}")
         except Exception as e:
-            logger.error(f"Failed to load model: {str(e)}")
+            logging.error(f"Failed to load model: {str(e)}")
             raise
     
     def reload_model(self):

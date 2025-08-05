@@ -391,7 +391,8 @@ def save_models(models, scaler, metrics):
         'feature_names': scaler.feature_names_in_.tolist()
     }
     
-    with open(MODEL_PATH, 'wb') as f:
+    model_file = os.path.join(MODEL_PATH, 'model.pkl')
+    with open(model_file, 'wb') as f:
         pickle.dump(model_data, f)
     
     logging.info("Models saved successfully")
