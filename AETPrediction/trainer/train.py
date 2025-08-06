@@ -39,9 +39,18 @@ logging.basicConfig(
     ]
 )
 
-def load_data():
-    """Load CSV data files as lists of dicts (supporting multiple files per type)"""
+def load_data(dynamic_data_path=None):
+    """Load CSV data files as lists of dicts (supporting multiple files per type)
+    
+    Args:
+        dynamic_data_path: Path for dynamic CSV files (flight_*.csv, fp_*.csv, acars_*.csv)
+                          If None, uses global DATA_PATH for all files
+    """
     logging.info("Loading CSV data files as lists of dicts...")
+    
+    # Use dynamic_data_path for dynamic files, original DATA_PATH for static files
+    data_path_for_dynamic = dynamic_data_path if dynamic_data_path else DATA_PATH
+    data_path_for_static = DATA_PATH  # Always use original DATA_PATH for static files
 
     # Define required columns for each file type
     flights_cols = [
@@ -111,7 +120,7 @@ def load_data():
 
     def read_acars_files():
         """Read ACARS files and return as list of dicts, return empty list if no files found"""
-        acars_files = glob.glob(os.path.join(DATA_PATH, 'acars_*.csv'))
+        acars_files = glob.glob(os.path.join(data_path_for_dynamic, 'acars_*.csv'))
         logging.warning(f"File: {acars_files}, starting to read")
         if not acars_files:
             logging.warning("No ACARS files found, returning empty list")
@@ -128,19 +137,19 @@ def load_data():
             logging.warning(f"Error reading ACARS files: {str(e)}, returning empty list")
             return []
 
-    # Load main tables (supporting multiple files)
-    flights = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'flight_*.csv'), usecols=flights_cols)
-    flight_plan = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'fp_arinc633_fp_*.csv'), usecols=flight_plan_cols)
-    waypoints = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'fp_arinc633_wp_*.csv'), usecols=waypoints_cols)
-    mel = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'fp_arinc633_mel_*.csv'), usecols=mel_cols)
+    # Load main tables (supporting multiple files) - use dynamic path
+    flights = read_multi_csv_to_dicts(os.path.join(data_path_for_dynamic, 'flight_*.csv'), usecols=flights_cols)
+    flight_plan = read_multi_csv_to_dicts(os.path.join(data_path_for_dynamic, 'fp_arinc633_fp_*.csv'), usecols=flight_plan_cols)
+    waypoints = read_multi_csv_to_dicts(os.path.join(data_path_for_dynamic, 'fp_arinc633_wp_*.csv'), usecols=waypoints_cols)
+    mel = read_multi_csv_to_dicts(os.path.join(data_path_for_dynamic, 'fp_arinc633_mel_*.csv'), usecols=mel_cols)
     
     # Load ACARS data and replace TP with TAP in FLIGHT column
     acars = read_acars_files()
         
-    # Load base tables
-    equipments = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'equipments.csv'), usecols=equipments_cols)
-    aircrafts = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'aircrafts.csv'), usecols=aircrafts_cols)
-    stations = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'stations_utc.csv'), usecols=stations_cols)
+    # Load base tables - use static path (original DATA_PATH)
+    equipments = read_single_csv_to_dicts(os.path.join(data_path_for_static, 'equipments.csv'), usecols=equipments_cols)
+    aircrafts = read_single_csv_to_dicts(os.path.join(data_path_for_static, 'aircrafts.csv'), usecols=aircrafts_cols)
+    stations = read_single_csv_to_dicts(os.path.join(data_path_for_static, 'stations_utc.csv'), usecols=stations_cols)
 
     logging.info(f"Loaded {len(flights)} flights (as dicts)")
 
@@ -506,17 +515,20 @@ def save_features_targets_to_csv(features, targets):
     logging.info(f"Metadata saved to: {metadata_path}")
 
 
-def rename_csv_files_to_done():
+def rename_csv_files_to_done(dynamic_data_path=None):
     """Rename all CSV files in the data directory to .done extension"""
     logging.info("Renaming all CSV files to .done extension...")
     
+    # Use provided dynamic_data_path or fall back to DATA_PATH
+    data_path_for_renaming = dynamic_data_path if dynamic_data_path else DATA_PATH
+    
     # Get all CSV files in the data directory
     csv_patterns = [
-        os.path.join(DATA_PATH, 'flight_*.csv'),
-        os.path.join(DATA_PATH, 'fp_arinc633_fp_*.csv'),
-        os.path.join(DATA_PATH, 'fp_arinc633_wp_*.csv'),
-        os.path.join(DATA_PATH, 'fp_arinc633_mel_*.csv'),
-        os.path.join(DATA_PATH, 'acars_*.csv')
+        os.path.join(data_path_for_renaming, 'flight_*.csv'),
+        os.path.join(data_path_for_renaming, 'fp_arinc633_fp_*.csv'),
+        os.path.join(data_path_for_renaming, 'fp_arinc633_wp_*.csv'),
+        os.path.join(data_path_for_renaming, 'fp_arinc633_mel_*.csv'),
+        os.path.join(data_path_for_renaming, 'acars_*.csv')
     ]
     
     renamed_count = 0
@@ -597,54 +609,98 @@ def load_features_targets_from_csv():
 
 
 def main():
-    """Main training pipeline"""
-    logging.info("=== Starting daily training ===")
+    """Main training pipeline - processes all folders in DATA_PATH"""
+    logging.info("=== Starting daily training for all folders ===")
+    
+    # Get all folders in DATA_PATH
+    if not os.path.exists(DATA_PATH):
+        logging.error(f"DATA_PATH does not exist: {DATA_PATH}")
+        return
+    
+    folders = [f for f in os.listdir(DATA_PATH) if os.path.isdir(os.path.join(DATA_PATH, f))]
+    logging.info(f"Found {len(folders)} folders in DATA_PATH: {folders}")
+    
+    for folder in folders:
+        folder_path = os.path.join(DATA_PATH, folder)
+        logging.info(f"=== Processing folder: {folder} ===")
+        
+        # Check if folder has CSV files
+        csv_files = []
+        csv_patterns = [
+            os.path.join(folder_path, 'flight_*.csv'),
+            os.path.join(folder_path, 'fp_arinc633_fp_*.csv'),
+            os.path.join(folder_path, 'fp_arinc633_wp_*.csv'),
+            os.path.join(folder_path, 'fp_arinc633_mel_*.csv'),
+            os.path.join(folder_path, 'acars_*.csv')
+        ]
+        
+        for pattern in csv_patterns:
+            csv_files.extend(glob.glob(pattern))
+        
+        if not csv_files:
+            logging.info(f"Folder {folder} has no CSV files, assuming already processed, skipping...")
+            continue
+        
+        logging.info(f"Folder {folder} has {len(csv_files)} CSV files, processing...")
+        
+        try:
+            # Store original DATA_PATH for static files and cache
+            original_data_path = DATA_PATH
+            
+            # Create a separate variable for current folder's data path
+            current_folder_data_path = folder_path
+            
+            # LOG_PATH and MODEL_PATH remain unchanged (global)
+            # Only DATA_PATH will be temporarily changed for dynamic CSV files
+            
+            # Load cached data if it exists for this folder
+            cached_features, cached_targets = load_features_targets_from_csv()
+            
+            # Always process new data
+            logging.info("=== Loading Data ===")
+            flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations = load_data(current_folder_data_path)
+            logging.info("=== Loading Data Completed ===")
+            
+            # Calculate actual times
+            logging.info("=== Calculating Actual Times ===")
+            flights = calculate_planned_actual_times(flights)
+            logging.info("=== Calculating Actual Times Completed ===")
+            
+            # Prepare training data
+            logging.info("=== Preparing Training Data ===")
+            flights = prepare_training_data(
+                flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations
+            )
+            logging.info("=== Preparing Training Data Completed ===")
+
+            # Extract targets and features from new data
+            logging.info("=== Extracting Targets and Features ===")
+            new_features, new_targets = extract_targetsfeatures_from_flights(flights)
+            logging.info("=== Extracting Targets and Features Completed ===")
+            
+            # Append new data to cached data if it exists
+            if cached_features is not None and cached_targets is not None:
+                logging.info("Appending new data to existing cached data...")
+                features = pd.concat([cached_features, new_features], ignore_index=True)
+                targets = pd.concat([cached_targets, new_targets], ignore_index=True)
+                logging.info(f"Combined dataset - Features: {features.shape}, Targets: {targets.shape}")
+            else:
+                logging.info("No cached data found, using only new data")
+                features, targets = new_features, new_targets
+            
+        except Exception as e:
+            logging.error(f"Training failed for folder {folder}: {str(e)}")
+            continue  # Continue with next folder instead of stopping
     
     try:
-        # Load cached data if it exists
-        cached_features, cached_targets = load_features_targets_from_csv()
-        
-        # Always process new data
-        logging.info("=== Loading Data ===")
-        flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations = load_data()
-        logging.info("=== Loading Data Completed ===")
-        
-        # Calculate actual times
-        logging.info("=== Calculating Actual Times ===")
-        flights = calculate_planned_actual_times(flights)
-        flights = calculate_planned_actual_times(flights)
-        logging.info("=== Calculating Actual Times Completed ===")
-        
-        # Prepare training data
-        logging.info("=== Preparing Training Data ===")
-        flights = prepare_training_data(
-            flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations
-        )
-        logging.info("=== Preparing Training Data Completed ===")
-
-        # Extract targets and features from new data
-        logging.info("=== Extracting Targets and Features ===")
-        new_features, new_targets = extract_targetsfeatures_from_flights(flights)
-        logging.info("=== Extracting Targets and Features Completed ===")
-        
-        # Append new data to cached data if it exists
-        if cached_features is not None and cached_targets is not None:
-            logging.info("Appending new data to existing cached data...")
-            features = pd.concat([cached_features, new_features], ignore_index=True)
-            targets = pd.concat([cached_targets, new_targets], ignore_index=True)
-            logging.info(f"Combined dataset - Features: {features.shape}, Targets: {targets.shape}")
-        else:
-            logging.info("No cached data found, using only new data")
-            features, targets = new_features, new_targets
-        
         # Save combined features and targets to CSV for caching
         logging.info("=== Saving Combined Features and Targets to CSV ===")
         save_features_targets_to_csv(features, targets)
         logging.info("=== Saving Combined Features and Targets to CSV Completed ===")
 
-        # Rename CSV files to .done
+        # Rename CSV files to .done (use current folder path)
         logging.info("=== Renaming CSV Files to .done ===")
-        rename_csv_files_to_done()
+        rename_csv_files_to_done(current_folder_data_path)
         logging.info("=== Renaming CSV Files to .done Completed ===")
                 
         # Train models
@@ -657,12 +713,11 @@ def main():
         save_models(models, scaler, metrics)
         logging.info("=== Saving Models Completed ===")
         
-        # Log completion
-        logging.info("=== Training completed successfully ===")
-        
+        # Log completion for this folder
+        logging.info("=== Completed processing all folders ===")
     except Exception as e:
-        logging.error(f"Training failed: {str(e)}")
-        raise
+        logging.error(f"Training failed for folder {folder}: {str(e)}")
+        
 
 if __name__ == "__main__":
     main() 
