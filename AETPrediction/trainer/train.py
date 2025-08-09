@@ -331,14 +331,17 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
     logging.debug(f"ACARSs: {len(acars)}")
     i = 0
     for flight in flights:
-        flight_id = str(flight.get('CALL_SIGN', '')).strip().replace('TAP', 'TP')
+        flight_cs = str(flight.get('CALL_SIGN', '')).strip().replace('TAP', 'TP')
+        flt_nr = str(flight.get('FLT_NR', '')).strip()
+        flight_fid = 'TP' + flt_nr.zfill(4)
+        flight_id = 'TP' + flt_nr
         std_utc = flight.get('STD_UTC')
         std_utc_end = std_utc + pd.Timedelta(hours=12) if pd.notnull(std_utc) else None
         acars_matches = []
         logging.debug(f"Flight: {i}, flight_id: {flight_id}, std_utc: {std_utc}, std_utc_end: {std_utc_end}, of {len(flights)} flights, {len(acars)} acars")
         
         for a in acars:
-            if a.get('FLIGHT') == flight_id:
+            if a.get('FLIGHT') == flight_id or a.get('FLIGHT') == flight_fid or a.get('FLIGHT') == flight_cs:
                 report_time = pd.to_datetime(a.get('REPORTTIME'), errors='coerce')
                 if (
                     pd.notnull(report_time) and
