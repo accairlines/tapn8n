@@ -31,7 +31,7 @@ os.makedirs(LOG_PATH, exist_ok=True)
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(os.path.join(LOG_PATH, 'training.log')),
@@ -254,11 +254,13 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
             return pd.NaT
 
     # --- 1. Build station TIMEDIFF map ---
+    logging.debug(f"Stations: {len(stations)}")
     station_timediff = {(str(s.get('STATION', '')).strip(), s.get('DAY_NUM')): s.get('TIMEDIFF_MINUTES', 0) for s in stations}
     station_timediff = {(str(s.get('STATION', '')).strip(), s.get('DAY_NUM')): s.get('TIMEDIFF_MINUTES', 0) for s in stations}
 
     # --- 2. Preprocess flight_plan: keep only latest TS for each (CALLSIGN, DEPARTURE_AIRP, STD) ---
     flight_plan_latest = {}
+    logging.debug(f"FlightPlans: {len(flight_plan)}")
     for fp in flight_plan:
         key = (
             str(fp.get('CALLSIGN', '')).strip(),
@@ -271,6 +273,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
     # Now flight_plan_latest is a dict of the latest flight_plan per key
 
     # --- 3. Merge flight_plan into flights using UTC STD ---
+    logging.debug(f"Flights: {len(flights)}")
     for flight in flights:
         # Get TIMEDIFF for this flight's FROM_IATA
         from_iata = str(flight.get('FROM_IATA', '')).strip()
@@ -290,6 +293,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
 
     # --- 4. Merge aircraft into flights ---
     # Build index for aircrafts by ACREGISTRATION
+    logging.debug(f"Aircrafts: {len(aircrafts)}")
     aircraft_index = {str(a.get('ACREGISTRATION', '')).strip(): a for a in aircrafts}
     for flight in flights:
         ac_reg = str(flight.get('AC_REGISTRATION', '')).strip()
@@ -297,6 +301,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
 
     # --- 5. Merge equipment into flights ---
     # Build index for equipments by ID
+    logging.debug(f"Equipments: {len(equipments)}")
     equipment_index = {str(e.get('ID', '')).strip(): e for e in equipments}
     for flight in flights:
         equiptype_id = None
@@ -307,6 +312,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
     # --- 6. Merge mel and waypoints into flights by flight_plan FLP_FILE_NAME ---
     # Build index for mel and waypoints by FLP_FILE_NAME
     mel_index = {}
+    logging.debug(f"MELs: {len(mel)}")
     for m in mel:
         fname = str(m.get('FLP_FILE_NAME', '')).strip()
         mel_index.setdefault(fname, []).append(m)
@@ -322,6 +328,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
         flight['waypoints'] = waypoints_index.get(file_name, [])
 
     # --- 7. Merge acars into flights by CALLSIGN/FLIGHT and REPORTTIME window ---
+    logging.debug(f"ACARSs: {len(acars)}")
     for flight in flights:
         callsign = str(flight.get('CALLSIGN', '')).strip()
         std_utc = flight.get('STD_UTC')
