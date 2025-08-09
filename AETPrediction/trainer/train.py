@@ -696,7 +696,7 @@ def main():
                 features, targets = new_features, new_targets
             
         except Exception as e:
-            logging.error(f"Training failed for folder {folder}: {str(e)}")
+            logging.debug(f"Training failed for folder {folder}: {str(e)}")
             continue  # Continue with next folder instead of stopping
     
     try:
