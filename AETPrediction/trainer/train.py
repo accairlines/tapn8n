@@ -329,11 +329,13 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
 
     # --- 7. Merge acars into flights by CALLSIGN/FLIGHT and REPORTTIME window ---
     logging.debug(f"ACARSs: {len(acars)}")
+    i = 0
     for flight in flights:
         callsign = str(flight.get('CALLSIGN', '')).strip()
         std_utc = flight.get('STD_UTC')
         std_utc_end = std_utc + pd.Timedelta(hours=12) if pd.notnull(std_utc) else None
         acars_matches = []
+        logging.debug(f"Flight: {i}, callsign: {callsign}, std_utc: {std_utc}, std_utc_end: {std_utc_end}, of {len(flights)} flights")
         for a in acars:
             acars_flight = str(a.get('FLIGHT', '')).replace('TP', 'TAP').strip()
             report_time = pd.to_datetime(a.get('REPORTTIME'), errors='coerce')
@@ -345,6 +347,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
             ):
                 acars_matches.append(a)
         flight['acars'] = acars_matches
+        i += 1
 
     # All merges done
     return flights
