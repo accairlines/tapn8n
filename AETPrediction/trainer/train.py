@@ -331,7 +331,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
     logging.debug(f"ACARSs: {len(acars)}")
     i = 0
     for flight in flights:
-        callsign = str(flight.get('CALLSIGN', '')).strip()
+        callsign = str(flight.get('CALL_SIGN', '')).strip()
         std_utc = flight.get('STD_UTC')
         std_utc_end = std_utc + pd.Timedelta(hours=12) if pd.notnull(std_utc) else None
         acars_matches = []
