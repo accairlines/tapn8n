@@ -331,21 +331,22 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
     logging.debug(f"ACARSs: {len(acars)}")
     i = 0
     for flight in flights:
-        callsign = str(flight.get('CALL_SIGN', '')).strip()
+        flight_id = str(flight.get('CALL_SIGN', '')).strip().replace('TAP', 'TP')
         std_utc = flight.get('STD_UTC')
         std_utc_end = std_utc + pd.Timedelta(hours=12) if pd.notnull(std_utc) else None
         acars_matches = []
-        logging.debug(f"Flight: {i}, callsign: {callsign}, std_utc: {std_utc}, std_utc_end: {std_utc_end}, of {len(flights)} flights")
+        logging.debug(f"Flight: {i}, flight_id: {flight_id}, std_utc: {std_utc}, std_utc_end: {std_utc_end}, of {len(flights)} flights, {len(acars)} acars")
+        
         for a in acars:
-            acars_flight = str(a.get('FLIGHT', '')).replace('TP', 'TAP').strip()
-            report_time = pd.to_datetime(a.get('REPORTTIME'), errors='coerce')
-            if (
-                acars_flight == callsign and
-                pd.notnull(report_time) and
-                pd.notnull(std_utc) and
-                std_utc <= report_time <= std_utc_end
-            ):
-                acars_matches.append(a)
+            if a.get('FLIGHT') == flight_id:
+                report_time = pd.to_datetime(a.get('REPORTTIME'), errors='coerce')
+                if (
+                    pd.notnull(report_time) and
+                    pd.notnull(std_utc) and
+                    std_utc <= report_time <= std_utc_end
+                ):
+                    acars_matches.append(a)
+                    acars.remove(a)
         flight['acars'] = acars_matches
         i += 1
 
