@@ -448,7 +448,7 @@ def extract_targetsfeatures_from_flights(flights):
     flight_plan_fields = [
         'CAPTAIN', 'AIRCRAFT_ICAO_TYPE', 'AIRLINE_SPEC', 'PERFORMANCE_FACTOR',
         'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CRUISE_CI', 'CLIMB_PROC',
-        'CRUISE_PROC', 'DESCENT_PRO', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT'
+        'CRUISE_PROC', 'DESCENT_PROC', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT'
     ]
     """Extract targets DataFrame from enriched flights list."""
     for flight in flights:
