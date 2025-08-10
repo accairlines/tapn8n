@@ -321,6 +321,8 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
     for wp in waypoints:
         fname = str(wp.get('FLP_FILE_NAME', '')).strip()
         waypoints_index.setdefault(fname, []).append(wp)
+        
+    i = 0
     for flight in flights:
         file_name = None
         if flight.get('flight_plan'):
@@ -328,6 +330,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
         flight['mel'] = mel_index.get(file_name, [])
         flight['waypoints'] = waypoints_index.get(file_name, [])
         logging.debug(f"Flight: {i}, flight_plan: {file_name}, of {len(flights)} flights, {len(flight['mel'])} mel and {len(flight['waypoints'])} waypoints")
+        i += 1
 
     # --- 7. Merge acars into flights by CALLSIGN/FLIGHT and REPORTTIME window ---
     logging.debug(f"ACARSs: {len(acars)}")
