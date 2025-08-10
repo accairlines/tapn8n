@@ -14,7 +14,7 @@ class ModelLoader:
     """Handles model loading and prediction"""
     
     def __init__(self):
-        self.model_path = os.path.join(MODEL_PATH, 'model.pkl')
+        self.model_path = MODEL_PATH
         self.model_data = None
         self.load_model()
     
