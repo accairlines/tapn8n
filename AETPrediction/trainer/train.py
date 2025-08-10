@@ -313,6 +313,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
     # Build index for mel and waypoints by FLP_FILE_NAME
     mel_index = {}
     logging.debug(f"MELs: {len(mel)}")
+    logging.debug(f"WPs: {len(waypoints)}")
     for m in mel:
         fname = str(m.get('FLP_FILE_NAME', '')).strip()
         mel_index.setdefault(fname, []).append(m)
@@ -326,6 +327,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
             file_name = str(flight['flight_plan'].get('FLP_FILE_NAME', '')).strip()
         flight['mel'] = mel_index.get(file_name, [])
         flight['waypoints'] = waypoints_index.get(file_name, [])
+        logging.debug(f"Flight: {i}, flight_plan: {file_name}, of {len(flights)} flights, {len(flight['mel'])} mel and {len(flight['waypoints'])} waypoints")
 
     # --- 7. Merge acars into flights by CALLSIGN/FLIGHT and REPORTTIME window ---
     logging.debug(f"ACARSs: {len(acars)}")
@@ -502,13 +504,17 @@ def save_features_targets_to_csv(features, targets):
     cache_dir = os.path.join(DATA_PATH, 'cache')
     os.makedirs(cache_dir, exist_ok=True)
     
-    # Save features
+    # Save features to a clean file
     features_path = os.path.join(cache_dir, 'features.csv')
+    if os.path.exists(features_path):
+        os.remove(features_path)  # Remove existing file first
     features.to_csv(features_path, index=False)
     logging.info(f"Features saved to: {features_path}")
     
     # Save targets
     targets_path = os.path.join(cache_dir, 'targets.csv')
+    if os.path.exists(targets_path):
+        os.remove(targets_path)  # Remove existing file first
     targets.to_csv(targets_path, index=False)
     logging.info(f"Targets saved to: {targets_path}")
     
@@ -523,6 +529,8 @@ def save_features_targets_to_csv(features, targets):
     
     import json
     metadata_path = os.path.join(cache_dir, 'metadata.json')
+    if os.path.exists(metadata_path):
+        os.remove(metadata_path)  # Remove existing file first
     with open(metadata_path, 'w') as f:
         json.dump(metadata, f, indent=2)
     
@@ -634,6 +642,8 @@ def main():
     folders = [f for f in os.listdir(DATA_PATH) if os.path.isdir(os.path.join(DATA_PATH, f))]
     logging.info(f"Found {len(folders)} folders in DATA_PATH: {folders}")
     
+    processed_folders = []
+    
     for folder in folders:
         folder_path = os.path.join(DATA_PATH, folder)
         logging.info(f"=== Processing folder: {folder} ===")
@@ -663,6 +673,7 @@ def main():
             
             # Create a separate variable for current folder's data path
             current_folder_data_path = folder_path
+            processed_folders.append(current_folder_data_path)
             
             # LOG_PATH and MODEL_PATH remain unchanged (global)
             # Only DATA_PATH will be temporarily changed for dynamic CSV files
@@ -695,12 +706,12 @@ def main():
             # Append new data to cached data if it exists
             if cached_features is not None and cached_targets is not None:
                 logging.info("Appending new data to existing cached data...")
-                features = pd.concat([cached_features, new_features], ignore_index=True)
-                targets = pd.concat([cached_targets, new_targets], ignore_index=True)
-                logging.info(f"Combined dataset - Features: {features.shape}, Targets: {targets.shape}")
+                cached_features = pd.concat([cached_features, new_features], ignore_index=True)
+                cached_targets = pd.concat([cached_targets, new_targets], ignore_index=True)
+                logging.info(f"Combined dataset - Features: {new_features.shape}, Targets: {new_targets.shape}")
             else:
                 logging.info("No cached data found, using only new data")
-                features, targets = new_features, new_targets
+                cached_features, cached_targets = new_features, new_targets
             
         except Exception as e:
             logging.debug(f"Training failed for folder {folder}: {str(e)}")
@@ -709,12 +720,13 @@ def main():
     try:
         # Save combined features and targets to CSV for caching
         logging.info("=== Saving Combined Features and Targets to CSV ===")
-        save_features_targets_to_csv(features, targets)
+        save_features_targets_to_csv(cached_features, cached_targets)
         logging.info("=== Saving Combined Features and Targets to CSV Completed ===")
 
         # Rename CSV files to .done (use current folder path)
         logging.info("=== Renaming CSV Files to .done ===")
-        rename_csv_files_to_done(current_folder_data_path)
+        for folder in processed_folders:
+            rename_csv_files_to_done(folder)
         logging.info("=== Renaming CSV Files to .done Completed ===")
                 
         # Train models
