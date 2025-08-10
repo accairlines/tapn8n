@@ -9,6 +9,7 @@ import numpy as np
 import pickle
 import logging
 from datetime import datetime, timedelta
+from collections import defaultdict
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, r2_score
@@ -81,38 +82,41 @@ def load_data(dynamic_data_path=None):
 
     def read_multi_csv_to_dicts(pattern, usecols=None):
         files = glob.glob(pattern)
-        logging.warning(f"File: {files}, starting to read")
+        logging.debug(f"File: {files}, starting to read")
         if not files:
-            logging.warning(f"No files found for pattern: {pattern}, returning empty list")
+            logging.debug(f"No files found for pattern: {pattern}, returning empty list")
             return []
+        
+        # Use list comprehension for better performance
         df_list = []
         for f in files:
-            df = pd.read_csv(f, encoding='latin1', low_memory=False)
-            if usecols is not None:
-                missing_cols = [col for col in usecols if col not in df.columns]
-                for col in missing_cols:
-                    df[col] = None
-                df = df.reindex(columns=usecols)
-            df_list.append(df)
-        df_list = [df for df in df_list if not df.empty and not all(df.isna().all())]
-        if df_list:
-            df = pd.concat(df_list, ignore_index=True)
-        else:
-            # handle the case where all files are empty
-            df = pd.DataFrame(columns=usecols if usecols else [])
-        logging.warning(f"File: {files}, read successfully, returning {len(df)} records")
-        return df.to_dict('records')
+            try:
+                df = pd.read_csv(f, encoding='latin1', low_memory=False, usecols=usecols)
+                if not df.empty:
+                    df_list.append(df)
+            except Exception as e:
+                logging.warning(f"Error reading {f}: {str(e)}")
+                continue
+        
+        if not df_list:
+            # Return empty DataFrame with correct columns
+            return pd.DataFrame(columns=usecols if usecols else []).to_dict('records')
+        
+        # Concatenate all DataFrames at once
+        combined_df = pd.concat(df_list, ignore_index=True)
+        logging.debug(f"File: {files}, read successfully, returning {len(combined_df)} records")
+        return combined_df.to_dict('records')
 
     def read_single_csv_to_dicts(file_path, usecols=None):
         """Read a single CSV file and return as list of dicts, return empty list if file doesn't exist"""
-        logging.warning(f"File: {file_path}, starting to read")
+        logging.debug(f"File: {file_path}, starting to read")
         if not os.path.exists(file_path):
-            logging.warning(f"File not found: {file_path}, returning empty list")
+            logging.debug(f"File not found: {file_path}, returning empty list")
             return []
         try:
             df = pd.read_csv(file_path, usecols=usecols, low_memory=False)
             
-            logging.warning(f"File: {file_path}, read successfully, returning {len(df)} records")
+            logging.debug(f"File: {file_path}, read successfully, returning {len(df)} records")
             return df.to_dict('records')
         except Exception as e:
             logging.warning(f"Error reading {file_path}: {str(e)}, returning empty list")
@@ -121,9 +125,9 @@ def load_data(dynamic_data_path=None):
     def read_acars_files():
         """Read ACARS files and return as list of dicts, return empty list if no files found"""
         acars_files = glob.glob(os.path.join(data_path_for_dynamic, 'acars_*.csv'))
-        logging.warning(f"File: {acars_files}, starting to read")
+        logging.debug(f"File: {acars_files}, starting to read")
         if not acars_files:
-            logging.warning("No ACARS files found, returning empty list")
+            logging.debug("No ACARS files found, returning empty list")
             return []
         
         try:
@@ -131,7 +135,7 @@ def load_data(dynamic_data_path=None):
                 pd.read_csv(f, usecols=acars_cols, low_memory=False) for f in acars_files
             ], ignore_index=True)
             acars_df['CALLSIGN'] = acars_df['FLIGHT'].str.replace('TP', 'TAP')
-            logging.warning(f"File: {acars_files}, read successfully, returning {len(acars_df)} records")
+            logging.debug(f"File: {acars_files}, read successfully, returning {len(acars_df)} records")
             return acars_df.to_dict('records')
         except Exception as e:
             logging.warning(f"Error reading ACARS files: {str(e)}, returning empty list")
@@ -175,29 +179,16 @@ def calculate_planned_actual_times(flights):
         onblock = parse_dt(flight.get('ONBLOCK'))
         eta = parse_dt(flight.get('ETA'))
         
-        
         # Planned Taxi out
         taxi_out_str = flight.get('TAXI_OUT_TIME', '00:00:00')
         h, m, s = map(int, taxi_out_str.split(':'))
         planned_taxi_out = h * 3600 + m * 60 + s if taxi_out_str else 0
+        
         # Planned Airborne
         flight_time = flight.get('FLIGHT_TIME') or flight.get('TRIP_DURATION', '00:00:00')
         h, m, s = map(int, flight_time.split(':'))
         planned_airborne = h * 3600 + m * 60 + s if flight_time else 0
-        # Planned Taxi in  
-        taxi_in_str = flight.get('TAXI_IN_TIME', '00:00:00')
-        h, m, s = map(int, taxi_in_str.split(':'))
-        planned_taxi_in = h * 3600 + m * 60 + s if taxi_in_str else 0
         
-        
-        # Planned Taxi out
-        taxi_out_str = flight.get('TAXI_OUT_TIME', '00:00:00')
-        h, m, s = map(int, taxi_out_str.split(':'))
-        planned_taxi_out = h * 3600 + m * 60 + s if taxi_out_str else 0
-        # Planned Airborne
-        flight_time = flight.get('FLIGHT_TIME') or flight.get('TRIP_DURATION', '00:00:00')
-        h, m, s = map(int, flight_time.split(':'))
-        planned_airborne = h * 3600 + m * 60 + s if flight_time else 0
         # Planned Taxi in  
         taxi_in_str = flight.get('TAXI_IN_TIME', '00:00:00')
         h, m, s = map(int, taxi_in_str.split(':'))
@@ -205,19 +196,24 @@ def calculate_planned_actual_times(flights):
 
         # Taxi out: MVT - OFFBLOCK
         actual_taxi_out = (mvt - offblock).total_seconds() / 60 if pd.notnull(mvt) and pd.notnull(offblock) else None
+        
         # Airborne: ATA - MVT
         actual_airborne = (ata - mvt).total_seconds() / 60 if pd.notnull(ata) and pd.notnull(mvt) else None
+        
         # Taxi in: ONBLOCK - ATA
         actual_taxi_in = (onblock - ata).total_seconds() / 60 if pd.notnull(onblock) and pd.notnull(ata) else None
+        
         # Total AET
         actual_total_time = sum(
             x for x in [actual_taxi_out, actual_airborne, actual_taxi_in] if x is not None
         )
+        
         # AET: ATA - MVT
         aet = (ata - mvt).total_seconds() / 60 if pd.notnull(ata) and pd.notnull(mvt) else None
+        
         # EET: ETA - MVT
         eet = (planned_taxi_out + planned_airborne + planned_taxi_in) / 60
-        eet = (planned_taxi_out + planned_airborne + planned_taxi_in) / 60
+        
         # delta: AET - EET
         actual_delta = (aet - eet) if aet is not None and eet is not None else None
 
@@ -230,13 +226,8 @@ def calculate_planned_actual_times(flights):
         flight['planned_airborne'] = planned_airborne
         flight['planned_taxi_in'] = planned_taxi_in
         flight['planned_total_time'] = planned_taxi_out + planned_airborne + planned_taxi_in
-        flight['planned_taxi_out'] = planned_taxi_out
-        flight['planned_airborne'] = planned_airborne
-        flight['planned_taxi_in'] = planned_taxi_in
-        flight['planned_total_time'] = planned_taxi_out + planned_airborne + planned_taxi_in
         flight['AET'] = aet
         flight['EET'] = eet
-        flight['delta'] = actual_delta
         flight['delta'] = actual_delta
 
     return flights
@@ -255,7 +246,6 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
 
     # --- 1. Build station TIMEDIFF map ---
     logging.debug(f"Stations: {len(stations)}")
-    station_timediff = {(str(s.get('STATION', '')).strip(), s.get('DAY_NUM')): s.get('TIMEDIFF_MINUTES', 0) for s in stations}
     station_timediff = {(str(s.get('STATION', '')).strip(), s.get('DAY_NUM')): s.get('TIMEDIFF_MINUTES', 0) for s in stations}
 
     # --- 2. Preprocess flight_plan: keep only latest TS for each (CALLSIGN, DEPARTURE_AIRP, STD) ---
@@ -279,7 +269,6 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
         from_iata = str(flight.get('FROM_IATA', '')).strip()
         # Convert STD (local) to UTC
         std_local = parse_dt(flight.get('STD'))
-        timediff = station_timediff.get((from_iata, std_local.dayofyear if pd.notnull(std_local) else None), 0)
         timediff = station_timediff.get((from_iata, std_local.dayofyear if pd.notnull(std_local) else None), 0)
         std_utc = std_local - pd.to_timedelta(timediff, unit='m') if pd.notnull(std_local) else pd.NaT
         # Build key for matching
@@ -314,26 +303,40 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
     mel_index = {}
     logging.debug(f"MELs: {len(mel)}")
     logging.debug(f"WPs: {len(waypoints)}")
+    
+    # Use defaultdict for better performance
+    mel_index = defaultdict(list)
+    waypoints_index = defaultdict(list)
+    
     for m in mel:
         fname = str(m.get('FLP_FILE_NAME', '')).strip()
-        mel_index.setdefault(fname, []).append(m)
-    waypoints_index = {}
+        mel_index[fname].append(m)
+    
     for wp in waypoints:
         fname = str(wp.get('FLP_FILE_NAME', '')).strip()
-        waypoints_index.setdefault(fname, []).append(wp)
+        waypoints_index[fname].append(wp)
         
-    i = 0
-    for flight in flights:
+    # Process all flights at once
+    for i, flight in enumerate(flights):
         file_name = None
         if flight.get('flight_plan'):
             file_name = str(flight['flight_plan'].get('FLP_FILE_NAME', '')).strip()
         flight['mel'] = mel_index.get(file_name, [])
         flight['waypoints'] = waypoints_index.get(file_name, [])
         logging.debug(f"Flight: {i}, flight_plan: {file_name}, of {len(flights)} flights, {len(flight['mel'])} mel and {len(flight['waypoints'])} waypoints")
-        i += 1
 
     # --- 7. Merge acars into flights by CALLSIGN/FLIGHT and REPORTTIME window ---
     logging.debug(f"ACARSs: {len(acars)}")
+    
+    # Pre-filter ACARS data for better performance
+    acars_dict = {}
+    for a in acars:
+        flight_id = a.get('FLIGHT')
+        if flight_id:
+            if flight_id not in acars_dict:
+                acars_dict[flight_id] = []
+            acars_dict[flight_id].append(a)
+    
     i = 0
     for flight in flights:
         flight_cs = str(flight.get('CALL_SIGN', '')).strip().replace('TAP', 'TP')
@@ -342,20 +345,24 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
         flight_id = 'TP' + flt_nr
         std_utc = flight.get('STD_UTC')
         std_utc_end = std_utc + pd.Timedelta(hours=12) if pd.notnull(std_utc) else None
-        acars_matches = []
-        logging.debug(f"Flight: {i}, flight_id: {flight_id}, std_utc: {std_utc}, std_utc_end: {std_utc_end}, of {len(flights)} flights, {len(acars)} acars")
         
-        for a in acars:
-            if a.get('FLIGHT') == flight_id or a.get('FLIGHT') == flight_fid or a.get('FLIGHT') == flight_cs:
-                report_time = pd.to_datetime(a.get('REPORTTIME'), errors='coerce')
-                if (
-                    pd.notnull(report_time) and
-                    pd.notnull(std_utc) and
-                    std_utc <= report_time <= std_utc_end
-                ):
-                    acars_matches.append(a)
-                    acars.remove(a)
+        # Get potential ACARS matches from pre-filtered dict
+        potential_acars = []
+        for acars_id in [flight_id, flight_fid, flight_cs]:
+            if acars_id in acars_dict:
+                potential_acars.extend(acars_dict[acars_id])
+        
+        # Filter by time window
+        acars_matches = []
+        for a in potential_acars:
+            report_time = pd.to_datetime(a.get('REPORTTIME'), errors='coerce')
+            if (pd.notnull(report_time) and 
+                pd.notnull(std_utc) and 
+                std_utc <= report_time <= std_utc_end):
+                acars_matches.append(a)
+        
         flight['acars'] = acars_matches
+        logging.debug(f"Flight: {i}, flight_id: {flight_id}, std_utc: {std_utc}, std_utc_end: {std_utc_end}, of {len(flights)} flights, {len(acars_matches)} acars matches")
         i += 1
 
     # All merges done
@@ -365,9 +372,6 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
 def train_models(features, targets):
     """Train separate XGBoost models for each time component"""
     logging.info("Training models...")
-
-    # Ensure only numeric columns are used
-    features_numeric = features.select_dtypes(include=[np.number])
 
     # Ensure only numeric columns are used
     features_numeric = features.select_dtypes(include=[np.number])
@@ -468,13 +472,17 @@ def extract_targetsfeatures_from_flights(flights):
                 row[f'eq_{ek}'] = eq.get(ek)
         # Add up to 50 waypoints with ALTITUDE > 299, extracting 3 fields
         wp_fields = ['SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE']
-        waypoints = [wp for wp in (flight.get('waypoints') or []) if wp.get('ALTITUDE') is not None and float(wp.get('ALTITUDE', 0)) > 299]
+        waypoints = [wp for wp in (flight.get('waypoints') or []) 
+                    if wp.get('ALTITUDE') is not None and float(wp.get('ALTITUDE', 0)) > 299]
+        
+        # Pre-allocate waypoint fields for better performance
         for i in range(50):
             if i < len(waypoints):
                 wp = waypoints[i]
                 for f in wp_fields:
                     row[f'wp{i+1}_{f}'] = wp.get(f)
             else:
+                # Use None for missing waypoints
                 for f in wp_fields:
                     row[f'wp{i+1}_{f}'] = None
         # Add up to 20 acars, extracting WINDDIRECTION and WINDSPEED
@@ -493,10 +501,9 @@ def extract_targetsfeatures_from_flights(flights):
         row['actual_taxi_in'] = flight.get('actual_taxi_in')
         row['AET'] = flight.get('AET')
         row['delta'] = flight.get('delta')
-        row['delta'] = flight.get('delta')
         data.append(row)
-    feactures_processed, targets_processed = preprocess_flight_data(data)
-    return feactures_processed, targets_processed
+    features_processed, targets_processed = preprocess_flight_data(data)
+    return features_processed, targets_processed
 
 
 def save_features_targets_to_csv(features, targets):
@@ -646,6 +653,8 @@ def main():
     logging.info(f"Found {len(folders)} folders in DATA_PATH: {folders}")
     
     processed_folders = []
+    all_features = []
+    all_targets = []
     
     for folder in folders:
         folder_path = os.path.join(DATA_PATH, folder)
@@ -671,15 +680,9 @@ def main():
         logging.info(f"Folder {folder} has {len(csv_files)} CSV files, processing...")
         
         try:
-            # Store original DATA_PATH for static files and cache
-            original_data_path = DATA_PATH
-            
             # Create a separate variable for current folder's data path
             current_folder_data_path = folder_path
             processed_folders.append(current_folder_data_path)
-            
-            # LOG_PATH and MODEL_PATH remain unchanged (global)
-            # Only DATA_PATH will be temporarily changed for dynamic CSV files
             
             # Load cached data if it exists for this folder
             cached_features, cached_targets = load_features_targets_from_csv()
@@ -709,43 +712,57 @@ def main():
             # Append new data to cached data if it exists
             if cached_features is not None and cached_targets is not None:
                 logging.info("Appending new data to existing cached data...")
-                cached_features = pd.concat([cached_features, new_features], ignore_index=True)
-                cached_targets = pd.concat([cached_targets, new_targets], ignore_index=True)
+                all_features.append(cached_features)
+                all_targets.append(cached_targets)
+                all_features.append(new_features)
+                all_targets.append(new_targets)
                 logging.info(f"Combined dataset - Features: {new_features.shape}, Targets: {new_targets.shape}")
             else:
                 logging.info("No cached data found, using only new data")
-                cached_features, cached_targets = new_features, new_targets
+                all_features.append(new_features)
+                all_targets.append(new_targets)
             
         except Exception as e:
             logging.debug(f"Training failed for folder {folder}: {str(e)}")
             continue  # Continue with next folder instead of stopping
     
     try:
-        # Save combined features and targets to CSV for caching
-        logging.info("=== Saving Combined Features and Targets to CSV ===")
-        save_features_targets_to_csv(cached_features, cached_targets)
-        logging.info("=== Saving Combined Features and Targets to CSV Completed ===")
+        # Combine all features and targets
+        if all_features and all_targets:
+            cached_features = pd.concat(all_features, ignore_index=True)
+            cached_targets = pd.concat(all_targets, ignore_index=True)
+            logging.debug(f"Features: {len(cached_features)} and Target: {len(cached_targets)} sizes to train")
+            
+            # Save combined features and targets to CSV for caching
+            logging.info("=== Saving Combined Features and Targets to CSV ===")
+            save_features_targets_to_csv(cached_features, cached_targets)
+            logging.info("=== Saving Combined Features and Targets to CSV Completed ===")
 
-        # Rename CSV files to .done (use current folder path)
-        logging.info("=== Renaming CSV Files to .done ===")
-        for folder in processed_folders:
-            rename_csv_files_to_done(folder)
-        logging.info("=== Renaming CSV Files to .done Completed ===")
-                
-        # Train models
-        logging.info("=== Training Models ===")
-        models, scaler, metrics = train_models(features, targets)
-        logging.info("=== Training Models Completed ===")
-        
-        # Save models
-        logging.info("=== Saving Models ===")
-        save_models(models, scaler, metrics)
-        logging.info("=== Saving Models Completed ===")
-        
-        # Log completion for this folder
-        logging.info("=== Completed processing all folders ===")
+            # Rename CSV files to .done (use current folder path)
+            logging.info("=== Renaming CSV Files to .done ===")
+            for folder in processed_folders:
+                rename_csv_files_to_done(folder)
+                logging.debug(f"Renamed folder: {len(folder)}")
+            logging.info("=== Renaming CSV Files to .done Completed ===")
+                    
+            # Train models
+            logging.info("=== Training Models ===")
+            models, scaler, metrics = train_models(cached_features, cached_targets)
+            logging.debug(f"Models: {len(models)} and Scaler: {len(scaler)} and Metrics: {len(metrics)} sizes trained")
+            logging.info("=== Training Models Completed ===")
+            
+            # Save models
+            logging.info("=== Saving Models ===")
+            save_models(models, scaler, metrics)
+            logging.info("=== Saving Models Completed ===")
+            
+            # Log completion for this folder
+            logging.info("=== Completed processing all folders ===")
+        else:
+            logging.warning("No data to process - all folders failed or were empty")
+            
     except Exception as e:
-        logging.error(f"Training failed for folder {folder}: {str(e)}")
+        logging.error(f"Training failed: {str(e)}")
         
 
 if __name__ == "__main__":
