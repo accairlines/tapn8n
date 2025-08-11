@@ -659,6 +659,12 @@ def main():
      # Load cached data if it exists for this folder
     logging.info(f"=== Loading cached data ===")
     cached_features, cached_targets = load_features_targets_from_csv()
+    # Append new data to cached data if it exists
+    if cached_features is not None and cached_targets is not None:
+        logging.info("Appending cached data to all_features and all_targets...")
+        all_features.append(cached_features)
+        all_targets.append(cached_targets)
+            
     logging.info(f"=== Loading cached data Completed ===")
     
     for folder in folders:
@@ -711,18 +717,9 @@ def main():
             new_features, new_targets = extract_targetsfeatures_from_flights(flights)
             logging.info("=== Extracting Targets and Features Completed ===")
             
-            # Append new data to cached data if it exists
-            if cached_features is not None and cached_targets is not None:
-                logging.info("Appending new data to existing cached data...")
-                all_features.append(cached_features)
-                all_targets.append(cached_targets)
-                all_features.append(new_features)
-                all_targets.append(new_targets)
-                logging.info(f"Combined dataset - Features: {new_features.shape}, Targets: {new_targets.shape}")
-            else:
-                logging.info("No cached data found, using only new data")
-                all_features.append(new_features)
-                all_targets.append(new_targets)
+            all_features.append(new_features)
+            all_targets.append(new_targets)
+            logging.info(f"Combined dataset - Features: {new_features.shape}, Targets: {new_targets.shape}")
             
         except Exception as e:
             logging.debug(f"Training failed for folder {folder}: {str(e)}")
