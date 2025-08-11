@@ -390,7 +390,7 @@ def train_models(features, targets):
     metrics = {}
     
     # Train model for each target
-    for target in ['delta']:
+    for target in targets:
         logging.info(f"Training model for {target}...")
         
         model = xgb.XGBRegressor(
@@ -742,7 +742,7 @@ def main():
             logging.info("=== Renaming CSV Files to .done ===")
             for folder in processed_folders:
                 rename_csv_files_to_done(folder)
-                logging.debug(f"Renamed folder: {len(folder)}")
+                logging.debug(f"Renamed folder: {folder}")
             logging.info("=== Renaming CSV Files to .done Completed ===")
                     
             # Train models
