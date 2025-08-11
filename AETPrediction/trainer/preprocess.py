@@ -15,13 +15,18 @@ def preprocess_flight_data(flights):
     # Ensure all columns are present
     all_cols = [
         'OFFBLOCK', 'MVT', 'ATA', 'ONBLOCK', 'ETA',
-        'FROM_IATA', 'STD', 'CALL_SIGN', 'AC_REGISTRATION',
+        'FROM_IATA', 'STD', 'CALL_ SIGN', 'AC_REGISTRATION',
         'OPERATOR', 'FLT_NR', 'TO_IATA', 'ETD', 'ATD', 'STA', 'FROM_STAND', 'TO_STAND',
         'AC_READY', 'TSAT', 'TOBT', 'CTOT', 'SERV_TYP_COD',
-        'FROM_TERMINAL', 'TO_TERMINAL', 'FROM_GATE', 'CAPTAIN', 'AIRCRAFT_ICAO_TYPE',
-        'AIRLINE_SPEC', 'PERFORMANCE_FACTOR', 'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CRUISE_CI', 'CLIMB_PROC',
-        'CRUISE_PROC', 'DESCENT_PRO', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT',
-        'BODYTYPE', 'EQUIPTYPE', 'EQUIPTYPE2'
+        'FROM_TERMINAL', 'TO_TERMINAL', 'FROM_GATE',
+        'fp_CALLSIGN', 'fp_DEPARTURE_AIRP', 'fp_STD', 'fp_TS', 'fp_FLP_FILE_NAME',
+        'fp_CAPTAIN', 'fp_AIRCRAFT_ICAO_TYPE', 'fp_AIRLINE_SPEC', 'fp_PERFORMANCE_FACTOR',
+        'fp_ROUTE_NAME', 'fp_ROUTE_OPTIMIZATION', 'fp_CRUISE_CI', 'fp_CLIMB_PROC',
+        'fp_CRUISE_PROC', 'fp_DESCENT_PROC', 'fp_GREAT_CIRC', 'fp_ZERO_FUEL_WEIGHT',
+        'eq_BODYTYPE', 'eq_EQUIPTYPE', 'eq_EQUIPTYPE2',
+        'actual_taxi_out', 'actual_airborne', 'actual_taxi_in', 'actual_total_time',
+        'planned_taxi_out', 'planned_airborne', 'planned_taxi_in', 'planned_total_time',
+        'AET', 'EET', 'delta'
     ]
     for col in all_cols:
         if col not in features_data.columns:
@@ -32,7 +37,8 @@ def preprocess_flight_data(flights):
         features_data[col + '_code'] = features_data[col].astype('category').cat.codes
 
     # Waypoint columns: wp1_... to wp50_... for each in waypoints_cols
-    waypoints_cols = ['SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE']
+    waypoints_cols = ['ALTITUDE', 'SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE',
+        'FLP_FILE_NAME', 'CUMULATIVE_FLIGHT_TIME']
     waypoint_data = {}
     for base in waypoints_cols:
         for i in range(1, 51):
@@ -45,7 +51,7 @@ def preprocess_flight_data(flights):
     features_data = pd.concat([features_data, waypoint_df], axis=1)
     
     # Acars columns: ac1_... to ac20_... for each in acars_cols
-    acars_cols = ['WINDDIRECTION', 'WINDSPEED']
+    acars_cols = ['FLIGHT', 'REPORTTIME', 'WINDDIRECTION', 'WINDSPEED']
     acars_data = {}
     for base in acars_cols:
         for i in range(1, 21):

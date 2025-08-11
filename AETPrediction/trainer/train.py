@@ -390,6 +390,7 @@ def train_models(features, targets):
     metrics = {}
     
     # Train model for each target
+    logging.info(f"Training model for features {len(features)} and targets {len(targets)}...")
     for target in targets:
         logging.info(f"Training model for {target}...")
         
@@ -443,7 +444,7 @@ def extract_targetsfeatures_from_flights(flights):
     flight_fields = [
         'OPERATOR', 'FLT_NR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA',
         'STD', 'ETD', 'ATD', 'STA', 'ETA', 'FROM_STAND', 'TO_STAND',
-        'AC_READY', 'TSAT', 'TOBT', 'CTOT', 'CALL_ SIGN', 'SERV_TYP_COD', 'MVT'
+        'AC_READY', 'TSAT', 'TOBT', 'CTOT', 'CALL_SIGN', 'SERV_TYP_COD', 'MVT'
     ]
     flight_plan_fields = [
         'CAPTAIN', 'AIRCRAFT_ICAO_TYPE', 'AIRLINE_SPEC', 'PERFORMANCE_FACTOR',
