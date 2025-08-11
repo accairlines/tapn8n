@@ -656,6 +656,11 @@ def main():
     all_features = []
     all_targets = []
     
+     # Load cached data if it exists for this folder
+    logging.info(f"=== Loading cached data ===")
+    cached_features, cached_targets = load_features_targets_from_csv()
+    logging.info(f"=== Loading cached data Completed ===")
+    
     for folder in folders:
         folder_path = os.path.join(DATA_PATH, folder)
         logging.info(f"=== Processing folder: {folder} ===")
@@ -684,10 +689,7 @@ def main():
             current_folder_data_path = folder_path
             processed_folders.append(current_folder_data_path)
             
-            # Load cached data if it exists for this folder
-            cached_features, cached_targets = load_features_targets_from_csv()
-            
-            # Always process new data
+           # Always process new data
             logging.info("=== Loading Data ===")
             flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations = load_data(current_folder_data_path)
             logging.info("=== Loading Data Completed ===")
