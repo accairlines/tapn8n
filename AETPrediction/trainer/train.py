@@ -748,7 +748,6 @@ def main():
             # Train models
             logging.info("=== Training Models ===")
             models, scaler, metrics = train_models(cached_features, cached_targets)
-            logging.debug(f"Models: {len(models)} and Scaler: {len(scaler)} and Metrics: {len(metrics)} sizes trained")
             logging.info("=== Training Models Completed ===")
             
             # Save models
