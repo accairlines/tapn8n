@@ -81,7 +81,7 @@ services:
       - /var/models:/app/models
     environment:
       - PYTHONUNBUFFERED=1
-      - AET_MODEL_PATH=/var/models/model.pkl
+      - AET_MODEL_PATH=/app/models/model.pkl
     depends_on:
       - trainer
     networks:
