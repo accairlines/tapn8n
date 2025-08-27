@@ -1,0 +1,144 @@
+Act as a principal engineer working in an existing monorepo with multiple Docker services:
+- DO NOT modify or remove any existing services, especially "predictor".
+- REUSE the existing "llama" container exactly as it is.
+- ADD a new Django-based service named "pptgeneration".
+- If a vector DB service (qdrant) does not exist, add it. If it does, reuse it.
+- Assume NGINX will proxy subpath /pptgeneration/ to the Django service.
+- Use internal port **8001** for pptgeneration to avoid conflicts with other services.
+
+GOAL
+The "pptgeneration" service will:
+1) Read Outlook .msg files from a mounted folder (read-only).
+2) Parse, clean, and chunk the content.
+3) Embed text via existing llama container (model "nomic-embed-text").
+4) Store vectors + metadata in Qdrant.
+5) Expose a Django REST API to:
+   - Trigger reindexing
+   - Ask questions (RAG) and get answers
+   - Generate PPT slides summarising answers for presentation use
+
+---
+
+### Repo structure to create
+- services/pptgeneration/
+  - manage.py
+  - pptgeneration/ (Django project)
+    - __init__.py
+    - settings.py
+    - urls.py
+    - asgi.py
+    - wsgi.py
+  - rag/ (Django app)
+    - __init__.py
+    - apps.py
+    - models.py
+    - admin.py
+    - serializers.py
+    - views.py
+    - urls.py
+    - tasks.py
+    - parsing.py
+    - chunking.py
+    - prompting.py
+    - qdrant_client_ext.py
+    - ollama_client.py
+    - utils.py
+    - ppt_builder.py  # generates PPT from retrieved/answered content
+  - scripts/
+    - ingest.py
+  - requirements.txt
+  - Dockerfile.django
+  - .env.example
+  - README-PPTGENERATION.md
+- data/emails/.gitkeep
+- storage/qdrant/.gitkeep  # only if qdrant is new
+- tests/
+  - smoke.http
+- PROMPT-PPTGENERATION.txt  # file containing this exact prompt for future updates
+
+---
+
+### Docker Compose changes (append-only)
+- Confirm "llama" exists; leave untouched.
+- If "qdrant" missing, add it.
+- Add:
+  pptgeneration:
+    build:
+      context: ./services/pptgeneration
+      dockerfile: Dockerfile.django
+    container_name: pptgeneration
+    depends_on:
+      - llama
+      - qdrant
+    environment:
+      - TZ=Europe/Lisbon
+      - DJANGO_SETTINGS_MODULE=pptgeneration.settings
+      - OLLAMA_BASE_URL=http://llama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - DATA_DIR=/data/outlook
+      - TOP_K_DEFAULT=6
+      - LLAMA_MODEL=llama3.1:8b
+      - EMBED_MODEL=nomic-embed-text
+      - API_AUTH_TOKEN=
+      - FORCE_SCRIPT_NAME=/pptgeneration
+      - DJANGO_ALLOWED_HOSTS=*
+    volumes:
+      - ./data/emails:/data/outlook:ro
+    expose:
+      - "8001"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8001/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+
+---
+
+### Django requirements
+- Python 3.11 slim image
+- Install:
+  django
+  djangorestframework
+  httpx
+  qdrant-client
+  extract-msg
+  beautifulsoup4
+  python-dateutil
+  pydantic
+  python-pptx  # for PPT generation
+- Non-root user, TZ=Europe/Lisbon
+- Entrypoint: uvicorn pptgeneration.asgi:application --host 0.0.0.0 --port 8001
+
+---
+
+### API endpoints (Django REST Framework)
+- GET /healthz → check Qdrant and llama.
+- POST /reindex → trigger scripts/ingest.py (Bearer auth optional).
+- POST /ask → return answer + sources + latencies, with citations in answer.
+- POST /generate-ppt → use latest answer/context to create PPT (pptx file), return download link or base64.
+
+---
+
+### Parsing & chunking
+- Parse .msg with extract-msg, clean HTML with BeautifulSoup.
+- Chunk size ~800–1200 chars, overlap 150–200.
+- Metadata: path, subject, from, date, msg_id, offset.
+- Upsert to Qdrant with deterministic IDs.
+
+---
+
+### Prompting
+- System prompt PT-PT: "Responde apenas com base nos emails indexados; cita as fontes no formato [assunto | data | ficheiro]; se não houver evidência suficiente, diz que não sabes e sugere próximos passos; sê conciso."
+- Support generating summarised answers for PPT slide content.
+
+---
+
+### PROMPT-PPTGENERATION.txt
+- Include this entire prompt file in the repo so it can be updated to guide llama in generating PPTs from the emails.
+
+---
+
+### Acceptance checklist
+- docker compose up -d --build runs pptgeneration on port 8001 internally without breaking other services.
+- NGINX can proxy /pptgeneration/ to it.
+- Endpoints respond correctly; PPT generation works.
