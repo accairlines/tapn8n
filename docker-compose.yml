@@ -18,11 +18,14 @@ services:
       - n8n
       - llama
       - predictor
+      - qdrant
+      - pptgeneration
     networks:
       - web_network
       - n8n_network
       - llama_network
       - predictor_network
+      - qdrant_network
 
   n8n:
     image: n8nio/n8n:latest
@@ -48,7 +51,8 @@ services:
       - n8n_network
 
   llama:
-    image: ollama/ollama
+    image: ollama/ollama:latest
+    pull_policy: always
     container_name: llama
     restart: always
     volumes:
@@ -57,6 +61,20 @@ services:
       - llama_network
     expose:
       - "11434:11434"
+         
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: always
+    volumes:
+      - ./storage/qdrant:/qdrant/storage
+    networks:
+      - qdrant_network
+    expose:
+      - "6333:6333"
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
          
   trainer:
     build: ./AETPrediction/trainer
@@ -90,12 +108,47 @@ services:
     container_name: predictor
     restart: always 
 
+  pptgeneration:
+    build:
+      context: ./services/pptgeneration
+      dockerfile: Dockerfile.django
+    container_name: pptgeneration
+    depends_on:
+      - llama
+      - qdrant
+    environment:
+      - TZ=Europe/Lisbon
+      - DJANGO_SETTINGS_MODULE=pptgeneration.settings
+      - OLLAMA_BASE_URL=http://llama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - DATA_DIR=/data/outlook
+      - TOP_K_DEFAULT=6
+      - LLAMA_MODEL=llama3.1:8b
+      - EMBED_MODEL=nomic-embed-text
+      - API_AUTH_TOKEN=
+      - FORCE_SCRIPT_NAME=/pptgeneration
+      - DJANGO_ALLOWED_HOSTS=*
+    volumes:
+      - /var/data/emails:/data/outlook:ro
+    expose:
+      - "8001"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8001/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    networks:
+      - qdrant_network
+      - llama_network 
+
 networks:
   web_network:
     driver: bridge
   n8n_network:
     driver: bridge
   llama_network:
+    driver: bridge
+  qdrant_network:
     driver: bridge
   trainer_network:
     driver: bridge
