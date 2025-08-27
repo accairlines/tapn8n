@@ -121,9 +121,6 @@ LLAMA_MODEL = os.environ.get('LLAMA_MODEL', 'llama3.1:8b')
 EMBED_MODEL = os.environ.get('EMBED_MODEL', 'nomic-embed-text')
 API_AUTH_TOKEN = os.environ.get('API_AUTH_TOKEN', '')
 
-# Force script name for subpath routing
-FORCE_SCRIPT_NAME = os.environ.get('FORCE_SCRIPT_NAME', '/pptgeneration')
-
 # Logging
 LOGGING = {
     'version': 1,
