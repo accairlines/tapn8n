@@ -2,14 +2,16 @@ version: "3.8"
 
 services:
   web:
-    image: nginx:stable-alpine
+    build: 
+      context: .
+      dockerfile: Dockerfile
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/usr/share/ssl:ro
-      - ./.htpasswd:/etc/nginx/.htpasswd:ro
       - /var/log/docker/web:/var/log/nginx/
-    ports: ["80:80","443:443"]
-    restart: always
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./.htpasswd:/etc/nginx/.htpasswd
+    ports:
+      - 80:80
+      - 443:443
     restart: always
     container_name: web
     depends_on:
@@ -23,7 +25,7 @@ services:
       - predictor_network
 
   n8n:
-    image: n8nio/n8n
+    image: n8nio/n8n:latest
     container_name: n8n
     restart: always
     ports:
