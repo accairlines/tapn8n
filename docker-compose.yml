@@ -110,8 +110,8 @@ services:
 
   pptgeneration:
     build:
-      context: ./services/pptgeneration
-      dockerfile: Dockerfile.django
+      context: ./PPTGeneration//services/pptgeneration
+      dockerfile: Dockerfile
     container_name: pptgeneration
     depends_on:
       - llama
