@@ -40,7 +40,7 @@ EXPOSE 8001
 
 # Health check
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-    CMD wget -q -O - http://localhost:8001/healthz/ || exit 1
+    CMD wget -q -O - http://localhost:8001/rag/healthz/ || exit 1
 
 # Entrypoint
 CMD ["gunicorn", "--workers=2", "--bind=0.0.0.0:8001", "pptgeneration.wsgi:application"]
