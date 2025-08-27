@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+RUN pip install gunicorn==23.0.0
+
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash appuser
 
@@ -41,4 +43,4 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
     CMD wget -q -O - http://localhost:8001/healthz/ || exit 1
 
 # Entrypoint
-CMD ["uvicorn", "pptgeneration.asgi:application", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["gunicorn", "--workers=2", "--bind=0.0.0.0:8001", "pptgeneration.asgi:application"]
