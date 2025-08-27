@@ -13,6 +13,43 @@ logger = logging.getLogger(__name__)
 model_loader = ModelLoader()
 
 @csrf_exempt
+def api_info(request):
+    """API information and available endpoints"""
+    return JsonResponse({
+        'name': 'AET Prediction API',
+        'version': '1.0.0',
+        'description': 'API for predicting Aircraft Elapsed Time (AET)',
+        'endpoints': {
+            'health': '/health/',
+            'predict_flight': '/predict/{flight_id}/',
+            'predict_batch': '/predict/batch/',
+            'admin': '/admin/'
+        },
+        'model_info': {
+            'loaded': model_loader.is_model_loaded(),
+            'last_trained': model_loader.get_model_info() if model_loader.is_model_loaded() else None
+        }
+    })
+
+@csrf_exempt
+def health_check(request):
+    """Health check endpoint for monitoring"""
+    try:
+        # Test database connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            db_status = "healthy"
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
+    
+    return JsonResponse({
+        'status': 'healthy',
+        'timestamp': timezone.now().isoformat(),
+        'database': db_status,
+        'model': 'loaded' if model_loader.is_model_loaded() else 'not_loaded'
+    })
+
+@csrf_exempt
 def predict_flight(request, flight_id):
     """Predict AET for a specific flight"""
     try:

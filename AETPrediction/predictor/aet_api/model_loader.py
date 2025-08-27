@@ -104,4 +104,19 @@ class ModelLoader:
         """Simple encoding for airports"""
         # In production, use the same encoding as training
         # This is simplified - you'd want to match training encoding
-        return hash(airport_code) % 1000 
+        return hash(airport_code) % 1000
+    
+    def is_model_loaded(self):
+        """Check if model is loaded"""
+        return self.model_data is not None
+    
+    def get_model_info(self):
+        """Get model information"""
+        if not self.model_data:
+            return None
+        
+        return {
+            'training_date': self.model_data.get('training_date'),
+            'feature_count': len(self.model_data.get('feature_names', [])),
+            'targets': list(self.model_data.get('models', {}).keys())
+        } 
