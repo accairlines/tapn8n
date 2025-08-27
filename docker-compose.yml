@@ -28,6 +28,8 @@ services:
     image: n8nio/n8n:latest
     container_name: n8n
     restart: always
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     ports:
       - "5678:5678"
     environment:
