@@ -110,7 +110,7 @@ services:
 
   pptgeneration:
     build:
-      context: ./PPTGeneration//services/pptgeneration
+      context: ./PPTGeneration/services/pptgeneration
       dockerfile: Dockerfile
     container_name: pptgeneration
     depends_on:
