@@ -134,7 +134,7 @@ services:
     volumes:
       - /var/data/emails:/data/outlook:ro
     expose:
-      - "8001"
+      - "8001:8001"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8001/healthz"]
       interval: 15s
