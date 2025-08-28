@@ -218,24 +218,24 @@ class QdrantClientExt:
     def health_check(self) -> Dict[str, Any]:
         """Check Qdrant service health."""
         try:
-            response = self.http_client.get(f"{self.base_url}/health")
+            response = self.http_client.get(f"{self.base_url}/readyz")
             
             if response.status_code == 200:
                 health_info = response.json()
                 return {
-                    'status': 'healthy',
+                    'status': 'readyz',
                     'version': health_info.get('version', 'unknown'),
                     'uptime': health_info.get('uptime', 0)
                 }
             else:
                 return {
-                    'status': 'unhealthy',
+                    'status': 'unreadyz',
                     'error': f"HTTP {response.status_code}"
                 }
                 
         except Exception as e:
             return {
-                'status': 'unhealthy',
+                'status': 'unreadyz',
                 'error': str(e)
             }
     
