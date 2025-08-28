@@ -11,11 +11,15 @@ qdrant-client>=1.6.0,<2.0.0
 # Email parsing
 extract-msg>=0.41.0,<1.0.0
 
+# Office 365 email integration
+O365>=2.0.0,<3.0.0
+exchangelib>=5.0.0,<6.0.0
+
 # HTML processing
 beautifulsoup4>=4.12.0,<5.0.0
 
 # Date utilities
-python-dateutil>=2.8.0,<3.0.0
+python-dateutil>=2.8.0,<5.0.0
 
 # Data validation
 pydantic>=2.0.0,<3.0.0

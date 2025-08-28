@@ -11,6 +11,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from .permissions import HasValidAPIKey
 
 from .serializers import (
     ReindexRequestSerializer, QuestionRequestSerializer, QuestionResponseSerializer,
@@ -18,6 +19,7 @@ from .serializers import (
 )
 from .tasks import reindex_emails, ask_question, generate_ppt
 from .utils import log_processing
+from .office365_sync import Office365EmailSync
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,7 @@ def health_check(request):
 
 class ReindexView(APIView):
     """Trigger email reindexing."""
+    permission_classes = [HasValidAPIKey]
     
     def post(self, request):
         serializer = ReindexRequestSerializer(data=request.data)
@@ -82,6 +85,7 @@ class ReindexView(APIView):
 
 class AskView(APIView):
     """Ask questions about the emails using RAG."""
+    permission_classes = [HasValidAPIKey]
     
     def post(self, request):
         serializer = QuestionRequestSerializer(data=request.data)
@@ -130,6 +134,7 @@ class AskView(APIView):
 
 class GeneratePPTView(APIView):
     """Generate PowerPoint presentation from email content."""
+    permission_classes = [HasValidAPIKey]
     
     def post(self, request):
         serializer = PPTGenerationRequestSerializer(data=request.data)
@@ -173,3 +178,65 @@ class GeneratePPTView(APIView):
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EmailSyncView(APIView):
+    """Synchronize emails from Office 365/Exchange and save them as .msg files."""
+    permission_classes = [HasValidAPIKey]
+    
+    def post(self, request):
+        """Trigger email synchronization."""
+        try:
+            days = request.data.get('days', 7)
+            
+            # Validate days parameter
+            if not isinstance(days, int) or days < 1 or days > 365:
+                return Response({
+                    'error': 'Invalid days parameter. Must be between 1 and 365.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Initialize email sync
+            email_sync = Office365EmailSync()
+            
+            # Perform sync
+            start_time = time.time()
+            sync_results = email_sync.sync_emails(days=days)
+            end_time = time.time()
+            
+            sync_time = end_time - start_time
+            
+            log_processing('INFO', f"Email sync completed", {
+                'days': days,
+                'sync_results': sync_results,
+                'sync_time': sync_time
+            })
+            
+            return Response({
+                'message': 'Email synchronization completed',
+                'days_processed': days,
+                'results': sync_results,
+                'sync_time_seconds': sync_time,
+                'timestamp': time.time()
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Email sync failed: {e}")
+            return Response({
+                'error': 'Email synchronization failed',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def get(self, request):
+        """Get email sync status."""
+        try:
+            email_sync = Office365EmailSync()
+            status_info = email_sync.get_sync_status()
+            
+            return Response(status_info, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Failed to get email sync status: {e}")
+            return Response({
+                'error': 'Failed to get email sync status',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

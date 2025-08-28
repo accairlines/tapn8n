@@ -32,11 +32,18 @@ This service provides:
 ## Configuration
 
 Environment variables:
+- `API_AUTH_TOKEN`: Secret API key for authentication (required)
 - `OLLAMA_BASE_URL`: LLaMA service URL (default: http://llama:11434)
 - `QDRANT_URL`: Qdrant service URL (default: http://qdrant:6333)
 - `DATA_DIR`: Email data directory (default: /data/outlook)
 - `LLAMA_MODEL`: LLaMA model name (default: llama3.1:8b)
 - `EMBED_MODEL`: Embedding model (default: nomic-embed-text)
+
+## Authentication
+
+This service uses API key authentication. All requests (except health check) must include the `X-API-Key` header with a valid API key.
+
+See [README-API-AUTHENTICATION.md](README-API-AUTHENTICATION.md) for detailed authentication instructions.
 
 ## Usage
 
@@ -50,13 +57,15 @@ data/emails/
 
 ### 2. Trigger reindexing
 ```bash
-curl -X POST http://localhost:8001/reindex/
+curl -X POST http://localhost:8001/reindex/ \
+  -H "X-API-Key: your-secret-api-key-here"
 ```
 
 ### 3. Ask questions
 ```bash
 curl -X POST http://localhost:8001/ask/ \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-api-key-here" \
   -d '{"question": "What are the main topics discussed in the emails?"}'
 ```
 
@@ -64,6 +73,7 @@ curl -X POST http://localhost:8001/ask/ \
 ```bash
 curl -X POST http://localhost:8001/generate-ppt/ \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-api-key-here" \
   -d '{"question": "Summarize the key findings", "slide_count": 5}'
 ```
 

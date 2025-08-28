@@ -57,7 +57,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'pptgeneration.wsgi.application'
-ASGI_APPLICATION = 'pptgeneration.asgi.application'
 
 # Database
 DATABASES = {
@@ -66,22 +65,6 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
-# Password validation
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
 
 # Internationalization
 LANGUAGE_CODE = 'pt-pt'
@@ -105,10 +88,7 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.JSONParser',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-    ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rag.authentication.APIKeyAuthentication',
     ],
 }
 
@@ -119,7 +99,7 @@ DATA_DIR = os.environ.get('DATA_DIR', '/data/outlook')
 TOP_K_DEFAULT = int(os.environ.get('TOP_K_DEFAULT', '6'))
 LLAMA_MODEL = os.environ.get('LLAMA_MODEL', 'llama3.1:8b')
 EMBED_MODEL = os.environ.get('EMBED_MODEL', 'nomic-embed-text')
-API_AUTH_TOKEN = os.environ.get('API_AUTH_TOKEN', '')
+API_AUTH_TOKEN = os.environ.get('API_AUTH_TOKEN', 'your-secret-api-key-here')
 
 # Logging
 LOGGING = {

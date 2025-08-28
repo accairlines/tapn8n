@@ -8,4 +8,5 @@ urlpatterns = [
     path('reindex/', views.ReindexView.as_view(), name='reindex'),
     path('ask/', views.AskView.as_view(), name='ask'),
     path('generate-ppt/', views.GeneratePPTView.as_view(), name='generate_ppt'),
+    path('sync-emails/', views.EmailSyncView.as_view(), name='sync_emails'),
 ]
