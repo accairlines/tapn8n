@@ -75,6 +75,11 @@ services:
     environment:
       - QDRANT__SERVICE__HTTP_PORT=6333
       - QDRANT__SERVICE__GRPC_PORT=6334
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
          
   trainer:
     build: ./AETPrediction/trainer
