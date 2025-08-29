@@ -82,7 +82,7 @@ class OllamaClient:
             }
             
             response = self.http_client.post(
-                f"{self.base_url}/api/chat",
+                f"{self.base_url}/api/generate",
                 json=request_data
             )
             
@@ -122,7 +122,7 @@ class OllamaClient:
             }
             
             response = self.http_client.post(
-                f"{self.base_url}/api/chat",
+                f"{self.base_url}/api/generate",
                 json=request_data
             )
             
@@ -311,7 +311,7 @@ Resposta estruturada:"""
 
     def chat(self, model: str = None, messages: list = None, options: dict = None, stream: bool = False) -> dict:
         """
-        Thin wrapper over /api/chat to support vision (base64) prompts.
+        Thin wrapper over /api/generate to support vision (base64) prompts.
         Expects messages=[{role, content, images?}], returns the API JSON.
         """
         payload = {
@@ -322,6 +322,6 @@ Resposta estruturada:"""
         if options:
             payload["options"] = options
 
-        resp = self.http_client.post(f"{self.base_url}/api/chat", json=payload)
+        resp = self.http_client.post(f"{self.base_url}/api/generate", json=payload)
         resp.raise_for_status()
         return resp.json()
