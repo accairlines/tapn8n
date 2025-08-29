@@ -22,6 +22,7 @@ class EmailParser:
         """Parse all email files in the data directory."""
         emails = []
         
+        logger.info(f"Data directory: {self.data_dir}")
         if not self.data_dir.exists():
             logger.warning(f"Data directory does not exist: {self.data_dir}")
             return emails
