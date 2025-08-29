@@ -1,5 +1,7 @@
 import time
 import logging
+import json
+import uuid
 from django.conf import settings
 from .parsing import EmailParser
 from .chunking import TextChunker
@@ -27,19 +29,52 @@ def reindex_emails(force=False):
         
         total_chunks = 0
         for email_data in emails:
-            # Chunk the content
-            chunks = chunker.chunk_text(email_data['content'])
-            email_data['chunks'] = chunks
-            total_chunks += len(chunks)
-            
-            # Generate embeddings for chunks
-            for chunk in chunks:
-                embedding = ollama_client.generate_embedding(chunk['text'])
-                chunk['embedding'] = embedding
-            
-            # Store in Qdrant
-            qdrant_client.upsert_email_chunks(email_data)
-        
+            # 1) Text chunks → text embeddings
+            chunks = chunker.chunk_text(email_data['content_text'])
+            for ch in chunks:
+                ch['embedding_text'] = ollama_client.embeddings(
+                    model="nomic-embed-text",
+                    prompt=ch['text']
+                )["embedding"]
+                ch["payload"] = {
+                    "msg_id": email_data["msg_id"],
+                    "date_received_ts": email_data["date_received"],
+                    "chunk_id": ch.get("id") or str(uuid.uuid4())
+                }
+
+            # 2) Images (base64 list) → caption/OCR with Llama 3.2 Vision
+            image_items = []
+            for img_b64 in email_data.get('content_image', []):
+                # ask for structured JSON back (caption + OCR)
+                vision_resp = ollama_client.chat(
+                    model="llama3.2-vision",
+                    messages=[{
+                        "role": "user",
+                        "content": "Describe the image, extract any visible text, and list key entities. Return strict JSON with keys: caption, ocr, entities[].",
+                        "images": [img_b64]  # base64 string
+                    }]
+                )
+                data = json.loads(vision_resp["message"]["content"])
+                cap_emb = ollama_client.embeddings(
+                    model="nomic-embed-text",
+                    prompt=data["caption"]
+                )["embedding"]
+                item = {
+                    "base64": img_b64,                  # or store a URL/hash instead
+                    "caption": data["caption"],
+                    "ocr": data.get("ocr", ""),
+                    "entities": data.get("entities", []),
+                    "embedding_text": cap_emb
+                }
+                image_items.append(item)
+
+            email_data["chunks"] = chunks
+            email_data["images"] = image_items
+
+            # 3) Upsert into Qdrant
+            qdrant_client.upsert_email_chunks(email_data)       # text collection
+            qdrant_client.upsert_email_images(email_data)       # image collection
+
         processing_time = time.time() - start_time
         
         logger.info(f"Reindexing completed, {str({
