@@ -7,7 +7,6 @@ from .qdrant_client_ext import QdrantClientExt
 from .ollama_client import OllamaClient
 from .prompting import PromptManager
 from .ppt_builder import PPTBuilder
-from .utils import log_processing
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +42,12 @@ def reindex_emails(force=False):
         
         processing_time = time.time() - start_time
         
-        log_processing('INFO', f"Reindexing completed", {
+        logger.info(f"Reindexing completed, {str({
             'emails_processed': len(emails),
             'total_chunks': total_chunks,
             'processing_time': processing_time,
             'force': force
-        })
+        })}")
         
         return {
             'status': 'success',
@@ -59,7 +58,6 @@ def reindex_emails(force=False):
         
     except Exception as e:
         logger.error(f"Reindexing failed: {e}")
-        log_processing('ERROR', f"Reindexing failed: {e}", {'error': str(e)})
         raise
 
 
@@ -143,11 +141,11 @@ def generate_ppt(question, slide_count=5, include_charts=True):
         
         generation_time = time.time() - start_time
         
-        log_processing('INFO', f"PPT generated successfully", {
+        logger.info(f"PPT generated successfully, {str({
             'slide_count': slide_count,
             'include_charts': include_charts,
             'generation_time': generation_time
-        })
+        })}")
         
         return pptx_data
         

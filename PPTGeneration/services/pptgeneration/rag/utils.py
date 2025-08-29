@@ -3,23 +3,6 @@ from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-
-def log_processing(level: str, message: str, details: Optional[Dict[str, Any]] = None):
-    """Log processing activity to database and console."""
-    try:
-        # Log to console
-        log_func = getattr(logger, level.lower(), logger.info)
-        if details:
-            log_func(f"{message} - Details: {details}")
-        else:
-            log_func(message)
-            
-    except Exception as e:
-        # Fallback to console logging only
-        logger.error(f"Failed to log to database: {e}")
-        logger.log(getattr(logging, level.upper(), logging.INFO), message)
-
-
 def format_file_size(size_bytes: int) -> str:
     """Format file size in human readable format."""
     if size_bytes == 0:

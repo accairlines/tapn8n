@@ -2,19 +2,15 @@ import time
 import base64
 import logging
 from django.conf import settings
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-from django.views import View
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.views import APIView
 from .permissions import HasValidAPIKey
 
 from .serializers import (
-    ReindexRequestSerializer, QuestionRequestSerializer, 
+    ReindexRequestSerializer, 
+    QuestionRequestSerializer, 
     PPTGenerationRequestSerializer
 )
 from .tasks import reindex_emails, ask_question, generate_ppt
@@ -60,7 +56,7 @@ def reindex(request):
         
         try:
             # Start async reindexing task
-            task_id = reindex_emails.delay(force=force)
+            task_id = reindex_emails(force=force)
             
             logger.info(f"Reindexing triggered {'task_id': str(task_id), 'force': force}")
             

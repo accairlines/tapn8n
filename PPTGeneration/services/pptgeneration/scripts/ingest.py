@@ -28,7 +28,7 @@ import django
 django.setup()
 
 from rag.tasks import reindex_emails
-from rag.utils import log_processing, get_system_info
+from rag.utils import get_system_info
 
 
 def main():
@@ -59,29 +59,19 @@ def main():
         
         # Log results
         processing_time = (end_time - start_time).total_seconds()
-        logger.info(f"Ingestion completed successfully in {processing_time:.2f} seconds")
-        logger.info(f"Result: {result}")
-        
         # Log to database
-        log_processing('INFO', 'Email ingestion completed', {
+        logger.info(f"Email ingestion completed, {str({
             'force': args.force,
             'processing_time': processing_time,
             'result': result,
             'system_info': system_info
-        })
+        })}")
         
         return 0
         
     except Exception as e:
         logger.error(f"Ingestion failed: {e}")
-        
-        # Log error to database
-        log_processing('ERROR', f'Email ingestion failed: {e}', {
-            'force': args.force,
-            'error': str(e),
-            'system_info': get_system_info()
-        })
-        
+                
         return 1
 
 
