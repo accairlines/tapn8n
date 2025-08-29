@@ -1,12 +1,12 @@
-from django.urls import path
+from django.urls import re_path
 from . import views
 
 app_name = 'rag'
 
 urlpatterns = [
-    path('healthz/', views.health_check, name='health_check'),
-    path('reindex/', views.ReindexView.as_view(), name='reindex'),
-    path('ask/', views.AskView.as_view(), name='ask'),
-    path('generate-ppt/', views.GeneratePPTView.as_view(), name='generate_ppt'),
-    path('sync-emails/', views.EmailSyncView.as_view(), name='sync_emails'),
+    re_path(r'^healthz$', views.health_check, name='health_check'),
+    re_path(r'^reindex$', views.reindex, name='reindex'),
+    re_path(r'^ask$', views.ask, name='ask'),
+    re_path(r'^generate-ppt$', views.generate_ppt, name='generate_ppt'),
+    re_path(r'^sync-emails$', views.sync_emails, name='sync_emails'),
 ]

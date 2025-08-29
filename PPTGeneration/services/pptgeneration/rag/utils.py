@@ -1,7 +1,5 @@
 import logging
 from typing import Dict, Any, Optional
-from django.utils import timezone
-from .models import ProcessingLog
 
 logger = logging.getLogger(__name__)
 
@@ -9,13 +7,6 @@ logger = logging.getLogger(__name__)
 def log_processing(level: str, message: str, details: Optional[Dict[str, Any]] = None):
     """Log processing activity to database and console."""
     try:
-        # Log to database
-        ProcessingLog.objects.create(
-            level=level.upper(),
-            message=message,
-            details=details or {}
-        )
-        
         # Log to console
         log_func = getattr(logger, level.lower(), logger.info)
         if details:

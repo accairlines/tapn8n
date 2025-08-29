@@ -22,23 +22,3 @@ class EmailDocument(models.Model):
     def __str__(self):
         return f"{self.subject} - {self.sender} ({self.date_received})"
 
-
-class ProcessingLog(models.Model):
-    """Model to log processing activities."""
-    
-    LEVEL_CHOICES = [
-        ('INFO', 'Info'),
-        ('WARNING', 'Warning'),
-        ('ERROR', 'Error'),
-    ]
-    
-    timestamp = models.DateTimeField(default=timezone.now)
-    level = models.CharField(max_length=10, choices=LEVEL_CHOICES, default='INFO')
-    message = models.TextField()
-    details = models.JSONField(default=dict, blank=True)
-    
-    class Meta:
-        ordering = ['-timestamp']
-    
-    def __str__(self):
-        return f"{self.timestamp} - {self.level}: {self.message}"

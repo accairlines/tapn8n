@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import EmailDocument, ProcessingLog
+from .models import EmailDocument
 
 
 class EmailDocumentSerializer(serializers.ModelSerializer):
@@ -7,13 +7,6 @@ class EmailDocumentSerializer(serializers.ModelSerializer):
         model = EmailDocument
         fields = '__all__'
         read_only_fields = ['processed_at', 'last_indexed']
-
-
-class ProcessingLogSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProcessingLog
-        fields = '__all__'
-        read_only_fields = ['timestamp']
 
 
 class ReindexRequestSerializer(serializers.Serializer):
