@@ -2,6 +2,7 @@ import time
 import base64
 import logging
 from django.conf import settings
+import traceback
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -58,7 +59,7 @@ def reindex(request):
             # Start async reindexing task
             task_id = reindex_emails(force=force)
             
-            logger.info(f"Reindexing triggered {'task_id': str(task_id), 'force': force}")
+            logger.info(f"Reindexing triggered {str({'task_id': str(task_id), 'force': force})}")
             
             return Response({
                 'message': 'Reindexing started',
@@ -69,7 +70,8 @@ def reindex(request):
             logger.error(f"Failed to start reindexing: {e}")
             return Response({
                 'error': 'Failed to start reindexing',
-                'details': str(e)
+                'details': str(e),
+                'stack_trace': traceback.format_exc()
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
