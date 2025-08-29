@@ -233,3 +233,32 @@ Resposta estruturada:"""
         """Cleanup HTTP client."""
         if hasattr(self, 'http_client'):
             self.http_client.close()
+
+    def embeddings(self, model: str = None, prompt: str = "") -> dict:
+        """
+        Compatibility wrapper so callers can use `.embeddings(model=..., prompt=...)`.
+        Returns a dict with key 'embedding' like Ollama HTTP API.
+        """
+        # Optionally honor the model arg; we already store embed_model on self
+        if model and model != self.embed_model:
+            # You can log a warning or just ignore; here we ignore and use self.embed_model
+            pass
+        emb = self.generate_embedding(prompt)
+        return {"embedding": emb}
+
+    def chat(self, model: str = None, messages: list = None, options: dict = None, stream: bool = False) -> dict:
+        """
+        Thin wrapper over /api/chat to support vision (base64) prompts.
+        Expects messages=[{role, content, images?}], returns the API JSON.
+        """
+        payload = {
+            "model": model or self.model,
+            "messages": messages or [],
+            "stream": stream
+        }
+        if options:
+            payload["options"] = options
+
+        resp = self.http_client.post(f"{self.base_url}/api/chat", json=payload)
+        resp.raise_for_status()
+        return resp.json()
