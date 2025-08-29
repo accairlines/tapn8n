@@ -64,12 +64,11 @@ services:
       - "11434:11434"
     entrypoint: ["/bin/sh", "-c"]
     command: >
-      "
-      ollama serve &
-      sleep 5 &&
-      ollama pull llama3.1:8b &&
-      wait -n
-      "
+      "ollama serve & 
+       server_pid=$!; 
+       sleep 5; 
+       ollama pull llama3.1:8b || true; 
+       wait $server_pid"
          
   qdrant:
     image: qdrant/qdrant:latest
