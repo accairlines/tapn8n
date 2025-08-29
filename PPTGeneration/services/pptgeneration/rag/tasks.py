@@ -44,29 +44,46 @@ def reindex_emails(force=False):
 
             # 2) Images (base64 list) → caption/OCR with Llama 3.2 Vision
             image_items = []
-            for img_b64 in email_data.get('content_image', []):
-                # ask for structured JSON back (caption + OCR)
-                vision_resp = ollama_client.chat(
-                    model="llama3.2-vision",
-                    messages=[{
-                        "role": "user",
-                        "content": "Describe the image, extract any visible text, and list key entities. Return strict JSON with keys: caption, ocr, entities[].",
-                        "images": [img_b64]  # base64 string
-                    }]
-                )
-                data = json.loads(vision_resp["message"]["content"])
-                cap_emb = ollama_client.embeddings(
-                    model="nomic-embed-text",
-                    prompt=data["caption"]
-                )["embedding"]
-                item = {
-                    "base64": img_b64,                  # or store a URL/hash instead
-                    "caption": data["caption"],
-                    "ocr": data.get("ocr", ""),
-                    "entities": data.get("entities", []),
-                    "embedding_text": cap_emb
-                }
-                image_items.append(item)
+            for img_item in email_data.get('content_images', []):
+                try:
+                    # Use the new analyze_image method
+                    analysis_result = ollama_client.analyze_image(
+                        image_base64=img_item['base64_data']
+                    )
+                    
+                    # Generate embedding for caption
+                    cap_emb = ollama_client.embeddings(
+                        model="nomic-embed-text",
+                        prompt=analysis_result["caption"]
+                    )["embedding"]
+                    
+                    # Create image item with all metadata
+                    item = {
+                        "mime_type": img_item.get('mime_type', ''),
+                        "base64_data": img_item.get('base64_data', ''),
+                        "size_bytes": img_item.get('size_bytes', 0),
+                        "is_embedded": img_item.get('is_embedded', True),
+                        "caption": analysis_result["caption"],
+                        "ocr": analysis_result.get("ocr", ""),
+                        "entities": analysis_result.get("entities", []),
+                        "embedding_text": cap_emb
+                    }
+                    image_items.append(item)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to process image: {e}")
+                    # Add fallback item
+                    item = {
+                        "mime_type": img_item.get('mime_type', ''),
+                        "base64_data": img_item.get('base64_data', ''),
+                        "size_bytes": img_item.get('size_bytes', 0),
+                        "is_embedded": img_item.get('is_embedded', True),
+                        "caption": "Image processing failed",
+                        "ocr": "",
+                        "entities": [],
+                        "embedding_text": []
+                    }
+                    image_items.append(item)
 
             email_data["chunks"] = chunks
             email_data["images"] = image_items
@@ -109,9 +126,10 @@ def ask_question(question, top_k=6, include_sources=True):
         # Generate question embedding
         question_embedding = ollama_client.generate_embedding(question)
         
-        # Retrieve relevant chunks
+        # Retrieve relevant chunks and images
         retrieval_start = time.time()
         relevant_chunks = qdrant_client.search_similar(question_embedding, top_k=top_k)
+        relevant_images = qdrant_client.search_similar_images(question_embedding, top_k=3)  # Get top 3 relevant images
         retrieval_time = time.time() - retrieval_start
         
         if not relevant_chunks:
@@ -123,8 +141,8 @@ def ask_question(question, top_k=6, include_sources=True):
                 'confidence': 0.0
             }
         
-        # Build context from chunks
-        context = prompt_manager.build_context(relevant_chunks)
+        # Build context from chunks and images
+        context = prompt_manager.build_context(relevant_chunks, relevant_images)
         
         # Generate answer using LLaMA
         generation_start = time.time()
@@ -134,12 +152,25 @@ def ask_question(question, top_k=6, include_sources=True):
         # Format sources if requested
         sources = []
         if include_sources:
+            # Add text chunk sources
             for chunk in relevant_chunks:
                 sources.append({
+                    'type': 'text',
                     'subject': chunk.get('subject', 'Unknown'),
                     'date': chunk.get('date', 'Unknown'),
                     'file': chunk.get('file_path', 'Unknown'),
                     'content': chunk.get('text', '')[:200] + '...'
+                })
+            
+            # Add image sources
+            for image in relevant_images:
+                sources.append({
+                    'type': 'image',
+                    'subject': image.get('subject', 'Unknown'),
+                    'date': image.get('date', 'Unknown'),
+                    'file': image.get('file_path', 'Unknown'),
+                    'caption': image.get('caption', ''),
+                    'ocr_text': image.get('ocr_text', '')[:200] + '...' if image.get('ocr_text') else ''
                 })
         
         total_time = time.time() - start_time

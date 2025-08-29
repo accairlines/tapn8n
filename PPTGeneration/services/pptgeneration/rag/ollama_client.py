@@ -234,6 +234,69 @@ Resposta estruturada:"""
         if hasattr(self, 'http_client'):
             self.http_client.close()
 
+    def analyze_image(self, image_base64: str, prompt: str = None) -> Dict[str, Any]:
+        """Analyze an image using vision model."""
+        try:
+            if not prompt:
+                prompt = "Describe the image, extract any visible text, and list key entities. Return strict JSON with keys: caption, ocr, entities[]."
+            
+            messages = [{
+                "role": "user",
+                "content": prompt,
+                "images": [image_base64]
+            }]
+            
+            response = self.chat(
+                model="llama3.2-vision",  # Use vision model
+                messages=messages,
+                stream=False
+            )
+            
+            if response and 'message' in response:
+                content = response['message'].get('content', '')
+                
+                # Try to parse JSON response
+                try:
+                    import json
+                    data = json.loads(content)
+                    return {
+                        'success': True,
+                        'caption': data.get('caption', ''),
+                        'ocr': data.get('ocr', ''),
+                        'entities': data.get('entities', []),
+                        'raw_response': content
+                    }
+                except json.JSONDecodeError:
+                    # Fallback to raw response
+                    return {
+                        'success': False,
+                        'caption': content,
+                        'ocr': '',
+                        'entities': [],
+                        'raw_response': content,
+                        'error': 'Failed to parse JSON response'
+                    }
+            else:
+                return {
+                    'success': False,
+                    'caption': 'Failed to analyze image',
+                    'ocr': '',
+                    'entities': [],
+                    'raw_response': '',
+                    'error': 'No response from vision model'
+                }
+                
+        except Exception as e:
+            logger.error(f"Image analysis failed: {e}")
+            return {
+                'success': False,
+                'caption': f'Error: {str(e)}',
+                'ocr': '',
+                'entities': [],
+                'raw_response': '',
+                'error': str(e)
+            }
+
     def embeddings(self, model: str = None, prompt: str = "") -> dict:
         """
         Compatibility wrapper so callers can use `.embeddings(model=..., prompt=...)`.

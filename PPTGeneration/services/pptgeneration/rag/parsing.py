@@ -56,36 +56,54 @@ class EmailParser:
             with open(file_path, 'r', encoding='utf-8') as f:
                 file_content = f.read()
                 header_content, html_content = file_content.split('==================================================')
+            
             # Extract elements from header content
             subject_content = header_content.strip().split('\n')[0] if header_content else ''
+            from_content = header_content.strip().split('\n')[1] if header_content else ''
             received_content = header_content.strip().split('\n')[2] if header_content else ''
+            body_type_content = header_content.strip().split('\n')[3] if header_content else ''
+            has_attachments_content = header_content.strip().split('\n')[4] if header_content else ''
             message_id_content = header_content.strip().split('\n')[5] if header_content else ''
             
             # Extract and separate image content from HTML
-            image_content = None
+            image_items = []
             text_content = html_content
             
-            # Find embedded base64 images
-            img_match = re.search(r'<img[^>]*src="data:image/[^;]+;base64,([^"]+)"', html_content)
-            if img_match:
-                # Extract the base64 image data
-                base64_data = img_match.group(1)
+            # Find all embedded base64 images
+            img_pattern = r'<img[^>]*src="data:image/([^;]+);base64,([^"]+)"[^>]*>'
+            img_matches = re.findall(img_pattern, html_content)
+            
+            for mime_type, base64_data in img_matches:
                 try:
                     # Convert base64 to bytes
-                    image_content = base64.b64decode(base64_data)
-                    # Remove the img tag from text content
-                    text_content = re.sub(r'<img[^>]+>', '', html_content)
+                    image_bytes = base64.b64decode(base64_data)
+                    
+                    # Create image item with metadata
+                    image_item = {
+                        'mime_type': f'image/{mime_type}',
+                        'base64_data': base64_data,  # Keep base64 for Ollama vision
+                        'size_bytes': len(image_bytes),
+                        'is_embedded': True
+                    }
+                    image_items.append(image_item)
+                    
                 except Exception as e:
                     logger.warning(f"Failed to decode embedded image: {e}")
-                        
+            
+            # Remove all img tags from text content
+            text_content = re.sub(r'<img[^>]+>', '', html_content)
+            
             # Extract basic metadata
             html_data = {
                 'filename': file_path.name,
                 'subject': subject_content.replace('Subject: ', ''),
+                'sender': from_content.replace('From: ', ''),
                 'date_received': self._parse_date(received_content.replace('Received: ', '')),
+                'body_type': body_type_content.replace('Body Type: ', ''),
+                'has_attachments': has_attachments_content.replace('Has Attachments: ', ''),
                 'msg_id': message_id_content.replace('Message ID: ', ''),
                 'content_text': text_content,
-                'content_images': image_content
+                'content_images': image_items  # Now a list of image items
             }
                         
             logger.debug(f"Successfully parsed: {file_path}")

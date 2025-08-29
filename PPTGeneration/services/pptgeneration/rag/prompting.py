@@ -27,33 +27,57 @@ class PromptManager:
         - Pontos-chave para cada slide
         - Recomendações ou conclusões"""
     
-    def build_context(self, chunks: List[Dict[str, Any]]) -> str:
-        """Build context string from retrieved chunks."""
-        if not chunks:
-            return ""
-        
+    def build_context(self, chunks: List[Dict[str, Any]], images: List[Dict[str, Any]] = None) -> str:
+        """Build context string from retrieved chunks and images."""
         context_parts = []
         
-        for i, chunk in enumerate(chunks):
-            # Format chunk with metadata
-            chunk_text = chunk.get('text', '')
-            subject = chunk.get('subject', 'Assunto desconhecido')
-            date = chunk.get('date', 'Data desconhecida')
-            file_path = chunk.get('file_path', 'Ficheiro desconhecido')
-            
-            # Format date if it's a datetime object
-            if hasattr(date, 'strftime'):
-                date_str = date.strftime('%d/%m/%Y %H:%M')
-            else:
-                date_str = str(date)
-            
-            # Create formatted chunk
-            formatted_chunk = f"[CHUNK {i+1}]\n"
-            formatted_chunk += f"Fonte: {subject} | {date_str} | {file_path}\n"
-            formatted_chunk += f"Conteúdo: {chunk_text}\n"
-            formatted_chunk += "-" * 80 + "\n"
-            
-            context_parts.append(formatted_chunk)
+        # Add text chunks
+        if chunks:
+            for i, chunk in enumerate(chunks):
+                # Format chunk with metadata
+                chunk_text = chunk.get('text', '')
+                subject = chunk.get('subject', 'Assunto desconhecido')
+                date = chunk.get('date', 'Data desconhecida')
+                file_path = chunk.get('file_path', 'Ficheiro desconhecido')
+                
+                # Format date if it's a datetime object
+                if hasattr(date, 'strftime'):
+                    date_str = date.strftime('%d/%m/%Y %H:%M')
+                else:
+                    date_str = str(date)
+                
+                # Create formatted chunk
+                formatted_chunk = f"[CHUNK {i+1}]\n"
+                formatted_chunk += f"Fonte: {subject} | {date_str} | {file_path}\n"
+                formatted_chunk += f"Conteúdo: {chunk_text}\n"
+                formatted_chunk += "-" * 80 + "\n"
+                
+                context_parts.append(formatted_chunk)
+        
+        # Add image information
+        if images:
+            for i, image in enumerate(images):
+                subject = image.get('subject', 'Assunto desconhecido')
+                date = image.get('date', 'Data desconhecida')
+                file_path = image.get('file_path', 'Ficheiro desconhecido')
+                caption = image.get('caption', 'Sem descrição')
+                ocr_text = image.get('ocr_text', '')
+                
+                # Format date if it's a datetime object
+                if hasattr(date, 'strftime'):
+                    date_str = date.strftime('%d/%m/%Y %H:%M')
+                else:
+                    date_str = str(date)
+                
+                # Create formatted image info
+                formatted_image = f"[IMAGEM {i+1}]\n"
+                formatted_image += f"Fonte: {subject} | {date_str} | {file_path}\n"
+                formatted_image += f"Descrição: {caption}\n"
+                if ocr_text:
+                    formatted_image += f"Texto extraído: {ocr_text}\n"
+                formatted_image += "-" * 80 + "\n"
+                
+                context_parts.append(formatted_image)
         
         return "\n".join(context_parts)
     
