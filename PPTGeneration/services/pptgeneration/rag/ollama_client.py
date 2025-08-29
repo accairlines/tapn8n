@@ -41,7 +41,7 @@ class OllamaClient:
             }
             
             response = self.http_client.post(
-                f"{self.base_url}/api/embed",
+                f"{self.base_url}/api/embeddings",
                 json=request_data
             )
             
@@ -82,7 +82,7 @@ class OllamaClient:
             }
             
             response = self.http_client.post(
-                f"{self.base_url}/api/generate",
+                f"{self.base_url}/api/chat",
                 json=request_data
             )
             
@@ -122,7 +122,7 @@ class OllamaClient:
             }
             
             response = self.http_client.post(
-                f"{self.base_url}/api/generate",
+                f"{self.base_url}/api/chat",
                 json=request_data
             )
             
@@ -322,6 +322,6 @@ Resposta estruturada:"""
         if options:
             payload["options"] = options
 
-        resp = self.http_client.post(f"{self.base_url}/api/generate", json=payload)
+        resp = self.http_client.post(f"{self.base_url}/api/chat", json=payload)
         resp.raise_for_status()
         return resp.json()
