@@ -15,7 +15,7 @@ class EmailParser:
     """Parser for Outlook .msg files."""
     
     def __init__(self):
-        self.data_dir = Path(settings.DATA_DIR)
+        self.data_dir = Path(os.environ.get('DATA_DIR', ''))
         self.supported_extensions = {'.msg'}
     
     def parse_all_emails(self, force=False) -> List[Dict[str, Any]]:
