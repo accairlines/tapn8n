@@ -27,7 +27,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pptgeneration.settings')
 import django
 django.setup()
 
-from rag.tasks import reindex_emails
+from rag.parsing import EmailParser
 from rag.utils import get_system_info
 
 
@@ -53,7 +53,7 @@ def main():
         # Start reindexing
         start_time = datetime.now()
         
-        result = reindex_emails(force=args.force)
+        result = EmailParser().parse_all_emails(force=args.force)
         
         end_time = datetime.now()
         

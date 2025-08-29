@@ -4,6 +4,8 @@ import hashlib
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any
+import re
+import base64
 import extract_msg
 from bs4 import BeautifulSoup
 from django.conf import settings
@@ -29,7 +31,7 @@ class EmailParser:
         
         for file_path in self.data_dir.rglob('*.msg'):
             try:
-                email_data = self.parse_email_file(file_path, force=force)
+                email_data = self.parse_html_file(file_path, force=force)
                 if email_data:
                     emails.append(email_data)
             except Exception as e:
@@ -39,8 +41,8 @@ class EmailParser:
         logger.info(f"Parsed {len(emails)} email files")
         return emails
     
-    def parse_email_file(self, file_path: Path, force=False) -> Dict[str, Any]:
-        """Parse a single .msg file."""
+    def parse_html_file(self, file_path: Path, force=False) -> Dict[str, Any]:
+        """Parse a single HTML file."""
         try:
             # Generate file hash for change detection
             file_hash = self._get_file_hash(file_path)
@@ -50,29 +52,44 @@ class EmailParser:
                 logger.debug(f"Skipping already processed file: {file_path}")
                 return None
             
-            # Parse the .msg file
-            msg = extract_msg.Message(file_path)
+            # Read and parse the HTML file
+            with open(file_path, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+                header_content, html_content = file_content.split('==================================================')
+            # Extract elements from header content
+            subject_content = header_content.strip().split('\n')[0] if header_content else ''
+            received_content = header_content.strip().split('\n')[2] if header_content else ''
+            message_id_content = header_content.strip().split('\n')[5] if header_content else ''
             
+            # Extract and separate image content from HTML
+            image_content = None
+            text_content = html_content
+            
+            # Find embedded base64 images
+            img_match = re.search(r'<img[^>]*src="data:image/[^;]+;base64,([^"]+)"', html_content)
+            if img_match:
+                # Extract the base64 image data
+                base64_data = img_match.group(1)
+                try:
+                    # Convert base64 to bytes
+                    image_content = base64.b64decode(base64_data)
+                    # Remove the img tag from text content
+                    text_content = re.sub(r'<img[^>]+>', '', html_content)
+                except Exception as e:
+                    logger.warning(f"Failed to decode embedded image: {e}")
+                        
             # Extract basic metadata
-            email_data = {
-                'file_path': str(file_path),
-                'file_hash': file_hash,
-                'subject': msg.subject or 'Sem assunto',
-                'sender': msg.sender or 'Remetente desconhecido',
-                'recipient': msg.to or 'Destinatário desconhecido',
-                'date_received': self._parse_date(msg.date),
-                'msg_id': msg.message_id or f"msg_{file_hash[:8]}",
-                'content': self._clean_content(msg.body),
-                'html_content': self._clean_html_content(msg.htmlBody),
-                'attachments': self._extract_attachments(msg),
-                'headers': dict(msg.header) if hasattr(msg, 'header') else {}
+            html_data = {
+                'filename': file_path.name,
+                'subject': subject_content.replace('Subject: ', ''),
+                'date_received': self._parse_date(received_content.replace('Received: ', '')),
+                'msg_id': message_id_content.replace('Message ID: ', ''),
+                'content_text': text_content,
+                'content_images': image_content
             }
-            
-            # Clean up
-            msg.close()
-            
+                        
             logger.debug(f"Successfully parsed: {file_path}")
-            return email_data
+            return html_data
             
         except Exception as e:
             logger.error(f"Failed to parse {file_path}: {e}")
@@ -122,61 +139,4 @@ class EmailParser:
             logger.error(f"Date parsing error: {e}")
             return datetime.now()
     
-    def _clean_content(self, content: str) -> str:
-        """Clean plain text content."""
-        if not content:
-            return ""
-        
-        # Remove extra whitespace and normalize
-        lines = content.split('\n')
-        cleaned_lines = []
-        
-        for line in lines:
-            line = line.strip()
-            if line:
-                cleaned_lines.append(line)
-        
-        return '\n'.join(cleaned_lines)
     
-    def _clean_html_content(self, html_content: str) -> str:
-        """Clean HTML content and extract text."""
-        if not html_content:
-            return ""
-        
-        try:
-            soup = BeautifulSoup(html_content, 'html.parser')
-            
-            # Remove script and style elements
-            for script in soup(["script", "style"]):
-                script.decompose()
-            
-            # Extract text
-            text = soup.get_text()
-            
-            # Clean up whitespace
-            lines = (line.strip() for line in text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            text = ' '.join(chunk for chunk in chunks if chunk)
-            
-            return text
-            
-        except Exception as e:
-            logger.error(f"HTML cleaning failed: {e}")
-            return html_content
-    
-    def _extract_attachments(self, msg) -> List[Dict[str, str]]:
-        """Extract attachment information."""
-        attachments = []
-        
-        try:
-            for attachment in msg.attachments:
-                att_data = {
-                    'filename': attachment.longFilename or attachment.shortFilename or 'unknown',
-                    'content_type': getattr(attachment, 'contentType', 'unknown'),
-                    'size': getattr(attachment, 'size', 0)
-                }
-                attachments.append(att_data)
-        except Exception as e:
-            logger.warning(f"Failed to extract attachments: {e}")
-        
-        return attachments
