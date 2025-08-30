@@ -25,6 +25,12 @@ class OllamaClient:
             response = self.http_client.get(f"{self.base_url}/api/tags")
             if response.status_code != 200:
                 logger.warning(f"Ollama service may not be available: {response.status_code}")
+            
+            logger.info(f"Ollama tags: {response.json()}")
+            
+            response = self.http_client.get(f"{self.base_url}/api/version")
+            if response.status_code == 200:
+                logger.info(f"Ollama version: {response.json()}")
         except Exception as e:
             logger.warning(f"Could not connect to Ollama service: {e}")
     
