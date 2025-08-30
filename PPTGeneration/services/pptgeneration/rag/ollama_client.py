@@ -44,7 +44,8 @@ class OllamaClient:
             
             request_data = {
                 "model": self.embed_model,
-                "input": text.strip()
+                "input": text.strip(),
+                "options": { "num_ctx": 8192 } 
             }
             
             response = self.http_client.post(
