@@ -62,14 +62,15 @@ services:
       - llama_network
     expose:
       - "11434:11434"
-    entrypoint: ["/bin/sh","-lc"]
+    entrypoint: ["/bin/sh", "-c"]
     command: >
-      ollama serve & SERVER_PID=$!;
-      sleep 5;
-      ollama pull llama3.1:8b || true;
-      ollama pull nomic-embed-text || true;
-      ollama pull llama3.2-vision || true;
-      wait $SERVER_PID
+      "ollama serve & 
+       server_pid=$!; 
+       sleep 5; 
+       ollama pull llama3.1:8b || true;
+       ollama pull nomic-embed-text || true;
+       ollama pull llama3.2-vision || true;
+       wait $server_pid"
          
   qdrant:
     image: qdrant/qdrant:latest
