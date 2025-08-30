@@ -13,6 +13,7 @@ class OllamaClient:
     def __init__(self):
         self.base_url = settings.OLLAMA_BASE_URL
         self.model = settings.LLAMA_MODEL
+        self.vision_model = settings.VISION_MODEL
         self.embed_model = settings.EMBED_MODEL
         self.http_client = httpx.Client(timeout=120.0)  # Longer timeout for generation
         
@@ -253,7 +254,7 @@ Resposta estruturada:"""
             }]
             
             response = self.chat(
-                model="llama3.2-vision",  # Use vision model
+                model=self.vision_model,  # Use vision model
                 messages=messages,
                 stream=False
             )

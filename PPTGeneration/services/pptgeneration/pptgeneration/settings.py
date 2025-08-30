@@ -103,6 +103,7 @@ DATA_DIR = os.environ.get('DATA_DIR', '/data/outlook')
 TOP_K_DEFAULT = int(os.environ.get('TOP_K_DEFAULT', '6'))
 LLAMA_MODEL = os.environ.get('LLAMA_MODEL', 'llama3.1:8b')
 EMBED_MODEL = os.environ.get('EMBED_MODEL', 'nomic-embed-text')
+VISION_MODEL = os.environ.get('VISION_MODEL', 'llama3.2-vision:latest')
 API_AUTH_TOKEN = os.environ.get('API_AUTH_TOKEN', 'your-secret-api-key-here')
 
 OFFICE365_CLIENT_ID = os.environ.get('OFFICE365_CLIENT_ID', 'your-client-id-here')
