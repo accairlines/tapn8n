@@ -67,7 +67,7 @@ services:
       "ollama serve & 
        server_pid=$!; 
        sleep 5; 
-       run qwen2.5:1.5b || true;
+       ollama run qwen2.5:1.5b || true;
        ollama pull nomic-embed-text || true;
        ollama pull moondream || true;
        wait $server_pid"
