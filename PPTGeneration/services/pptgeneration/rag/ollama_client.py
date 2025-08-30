@@ -37,7 +37,7 @@ class OllamaClient:
             
             request_data = {
                 "model": self.embed_model,
-                "prompt": text.strip()
+                "input": text.strip()
             }
             
             response = self.http_client.post(
