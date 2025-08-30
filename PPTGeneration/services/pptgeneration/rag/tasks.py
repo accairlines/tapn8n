@@ -23,7 +23,7 @@ def reindex_emails(force=False):
         chunker = TextChunker()
         qdrant_client = QdrantClientExt()
         ollama_client = OllamaClient()
-        
+                
         # Parse and process emails
         emails = parser.parse_all_emails(force=force)
         
@@ -33,7 +33,7 @@ def reindex_emails(force=False):
             chunks = chunker.chunk_text(email_data['content_text'])
             for ch in chunks:
                 ch['embedding_text'] = ollama_client.embeddings(
-                    model="nomic-embed-text",
+                    model=settings.EMBED_MODEL,
                     prompt=ch['text']
                 )["embedding"]
                 ch["payload"] = {
@@ -53,7 +53,7 @@ def reindex_emails(force=False):
                     
                     # Generate embedding for caption
                     cap_emb = ollama_client.embeddings(
-                        model="nomic-embed-text",
+                        model=settings.EMBED_MODEL,
                         prompt=analysis_result["caption"]
                     )["embedding"]
                     
