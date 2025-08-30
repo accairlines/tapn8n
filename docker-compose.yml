@@ -63,21 +63,12 @@ services:
     expose:
       - "11434:11434"
     entrypoint: ["/bin/sh","-lc"]
-    command: |
-      set -e
-      trap 'kill -TERM $SERVER_PID' TERM INT
-      ollama serve &
-      SERVER_PID=$!
-      # wait for server to be up
-      for i in $(seq 1 30); do
-        curl -sf http://localhost:11434/api/version >/dev/null && break
-        sleep 1
-      done
-      # pre-pull required models (don’t fail the container if a pull fails)
-      for m in ${OLLAMA_MODELS}; do
-        echo "Pulling $m..."
-        ollama pull "$m" || true
-      done
+    command: >
+      ollama serve & SERVER_PID=$!;
+      sleep 5;
+      ollama pull llama3.1:8b || true;
+      ollama pull nomic-embed-text || true;
+      ollama pull llama3.2-vision || true;
       wait $SERVER_PID
          
   qdrant:
