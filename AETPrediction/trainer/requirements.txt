@@ -1,7 +1,5 @@
 pandas==2.1.4
-numpy==1.26.4          # first line with 3.12 wheels
-scikit-learn==1.4.2    # 1.4+ provides 3.12 wheels
-xgboost==2.1.1         # 2.1+ provides 3.12 wheels
-mysqlclient==2.2.7
-setuptools>=68         # or just drop this pin entirely
-Django>=4.2
+numpy==1.24.3
+scikit-learn==1.3.2
+xgboost==2.0.3 
+python-dotenv==1.0.1 
