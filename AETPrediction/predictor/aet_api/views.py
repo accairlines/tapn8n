@@ -6,11 +6,12 @@ from datetime import datetime, timedelta
 import json
 import logging
 from .model_loader import ModelLoader
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 # Initialize model loader
-model_loader = ModelLoader()
+model_loader = ModelLoader(settings.MODEL_PATH)
 
 @csrf_exempt
 def predict_flight(request, flight_id):

@@ -108,9 +108,8 @@ services:
     volumes:
       - /var/log/docker/predictor:/app/logs
       - /var/models:/app/models
-    environment:
-      - PYTHONUNBUFFERED=1
-      - AET_MODEL_PATH=/app/models/model.pkl
+    env_file:
+      - ./AETPrediction/.env
     depends_on:
       - trainer
     networks:
