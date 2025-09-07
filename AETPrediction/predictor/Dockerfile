@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 # mysqlclient runtime headers (safe to include)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    default-libmysqlclient-dev \
+    libmariadb-dev pkg-config build-essential \
  && rm -rf /var/lib/apt/lists/*
 
 # upgrade pip/setuptools/wheel so PEP 517 builds (if any) work smoothly
