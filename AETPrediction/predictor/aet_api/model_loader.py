@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class ModelLoader:
     """Handles model loading and prediction"""
     
-    def __init__(self, model_path='/app/model.pkl'):
+    def __init__(self, model_path='/app/models/model.pkl'):
         self.model_path = model_path
         self.model_data = None
         self.load_model()
