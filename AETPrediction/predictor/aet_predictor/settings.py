@@ -111,3 +111,5 @@ LOGGING = {
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField' 
+
+MODEL_PATH = os.getenv('MODEL_PATH')
