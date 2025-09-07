@@ -39,13 +39,22 @@ ROOT_URLCONF = 'aet_predictor.urls'
 # Database
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'flight_ops'),
-        'USER': os.environ.get('DB_USER', 'root'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
-    }
+        'ENGINE': 'dj_db_conn_pool.backends.mysql',
+        'NAME': 'taphubtm',
+        'USER': os.getenv('SQL_USER'),
+        'PASSWORD': os.getenv('SQL_PASSWORD'),
+        'HOST': os.getenv('SQL_HOST'),
+        'PORT': '3306',
+        'OPTIONS': {
+            'ssl': {
+                'ca': os.getenv('SQL_CA'),
+            }
+        },
+        'POOL_OPTIONS' : {
+            'POOL_SIZE': 10,
+            'MAX_OVERFLOW': 0
+        }
+    },
 }
 
 # Internationalization

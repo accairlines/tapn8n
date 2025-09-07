@@ -3,18 +3,14 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import logging
-import os
 
-# Set base path from environment or default
-DATA_PATH = os.environ.get('AET_DATA_PATH')
-LOG_PATH = os.environ.get('AET_LOG_PATH')
-MODEL_PATH = os.environ.get('AET_MODEL_PATH')
+logger = logging.getLogger(__name__)
 
 class ModelLoader:
     """Handles model loading and prediction"""
     
-    def __init__(self):
-        self.model_path = MODEL_PATH
+    def __init__(self, model_path='/app/model.pkl'):
+        self.model_path = model_path
         self.model_data = None
         self.load_model()
     
@@ -23,10 +19,10 @@ class ModelLoader:
         try:
             with open(self.model_path, 'rb') as f:
                 self.model_data = pickle.load(f)
-            logging.info(f"Model loaded successfully from {self.model_path}")
-            logging.info(f"Model trained on: {self.model_data['training_date']}")
+            logger.info(f"Model loaded successfully from {self.model_path}")
+            logger.info(f"Model trained on: {self.model_data['training_date']}")
         except Exception as e:
-            logging.error(f"Failed to load model: {str(e)}")
+            logger.error(f"Failed to load model: {str(e)}")
             raise
     
     def reload_model(self):
@@ -104,19 +100,4 @@ class ModelLoader:
         """Simple encoding for airports"""
         # In production, use the same encoding as training
         # This is simplified - you'd want to match training encoding
-        return hash(airport_code) % 1000
-    
-    def is_model_loaded(self):
-        """Check if model is loaded"""
-        return self.model_data is not None
-    
-    def get_model_info(self):
-        """Get model information"""
-        if not self.model_data:
-            return None
-        
-        return {
-            'training_date': self.model_data.get('training_date'),
-            'feature_count': len(self.model_data.get('feature_names', [])),
-            'targets': list(self.model_data.get('models', {}).keys())
-        } 
+        return hash(airport_code) % 1000 
