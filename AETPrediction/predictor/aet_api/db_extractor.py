@@ -55,10 +55,10 @@ class DatabaseExtractor:
                 flights_df = self._extract_flights_table(start_date, end_date)
             
             # Extract data from all tables
-            flight_plans_df = self._extract_flight_plans_table(start_date, end_date)
-            waypoints_df = self._extract_waypoints_table(start_date, end_date)
-            mel_df = self._extract_mel_table(start_date, end_date)
-            acars_df = self._extract_acars_table(start_date, end_date)
+            flight_plans_df = self._extract_flight_plans_table(start_date, end_date, flt_nr=flights_df['FLT_NR'].iloc[0])
+            waypoints_df = self._extract_waypoints_table(start_date, end_date, flt_file_name=flight_plans_df['FLP_FILE_NAME'].iloc[0])
+            mel_df = self._extract_mel_table(start_date, end_date, flt_file_name=flight_plans_df['FLP_FILE_NAME'].iloc[0])
+            acars_df = self._extract_acars_table(start_date, end_date, callsign=flights_df['CALL_SIGN'].iloc[0].replace('TAP', 'TP'))
             equipments_df = self._extract_equipments_table()
             aircrafts_df = self._extract_aircrafts_table()
             stations_df = self._extract_stations_table()
@@ -103,7 +103,7 @@ class DatabaseExtractor:
         """
         return pd.read_sql(query, self.db_connection, params=[start_date, end_date])
     
-    def _extract_flight_plans_table(self, start_date, end_date):
+    def _extract_flight_plans_table(self, start_date, end_date, flt_nr=None):
         """Extract data from flight plans table"""
         query = """
         SELECT ID,FLP_FILE_NAME,PLAN_NBR,CATEGORY,COMP_AT,STD,DEP_DATE,CALLSIGN,CAPTAIN,FLT_NBR,DEPARTURE_AIRP,ARRIVAL_AIRP,TAIL,
@@ -113,15 +113,20 @@ class DatabaseExtractor:
                TAKE_OFF_FUEL,TAKE_OFF_DURATION,TAXI_FUEL,TAXI_FUEL_DURATION,BLOCK_FUEL,BLOCK_FUEL_DURATION,LANDING_FUEL,ARRIVAL_FUEL,
                DRY_OP_WEIGHT,LOAD_WEIGHT,ZERO_FUEL_WEIGHT,ZERO_FUEL_W_LIMIT,TAKEOFF_WEIGHT,TAKEOFF_W_OP_LIMIT,TAKEOFF_W_STRUCT_LIMIT,
                LANDING_WEIGHT,LANDING_W_OP_LIMIT,LANDING_W_STRUCT_LIMIT,TS,NULL AS TAXI_OUT_TIME,NULL AS TAXI_IN_TIME,NULL AS FLIGHT_TIME
-        FROM osusr_fam_fp_arinc6332025 
+        FROM osusr_fam_fp_arinc633 
         WHERE STR_TO_DATE(
             SUBSTRING_INDEX(SUBSTRING_INDEX(FLP_FILE_NAME, '.', 3), '.', -1),
             '%d%b%Y'
         ) BETWEEN %s AND %s
-        """
-        return pd.read_sql(query, self.db_connection, params=[start_date, end_date])
+        """ + (" AND FLT_NBR = %s" if flt_nr is not None else "")
+        
+        params = [start_date, end_date]
+        if flt_nr is not None:
+            params.append(flt_nr)
+            
+        return pd.read_sql(query, self.db_connection, params=params)
     
-    def _extract_waypoints_table(self, start_date, end_date):
+    def _extract_waypoints_table(self, start_date, end_date, flt_file_name=None):
         """Extract data from waypoints table"""
         query = """
         SELECT ID,FLP_FILE_NAME,SEQUENCE,WAYPOINTID,WAYPOINT_NAME,LATITUDE,LONGITUDE,COORDINATES,AIRWAY_TYPE,AIRWAY,ALTITUDE,
@@ -130,27 +135,37 @@ class DatabaseExtractor:
                GROUND_DISTANCE,AIR_DISTANCE,REMAIN_GROUND_DIST,REMAIN_AIR_DIST,TIME_FROM_PREV_WAY,CUMULATIVE_FLIGHT_TIME,REMAIN_FLIGHT_TIME,
                BURNOFF_WEIGHT,CUMULATIVE_BURNOFF_W,ESTIMATED_WEIGHT,AIRCRAFT_WEIGHT,FUELON_ON_BOAR,MINIMUM_FUEL_ONBOARD,AIRSPA_AIRSPACE_ICAO,
                AIRSPA_AIRSPACE_NAME,TS
-        FROM osusr_fam_fp_arinc633_wp2025 
+        FROM osusr_fam_fp_arinc633_wp 
         WHERE STR_TO_DATE(
             SUBSTRING_INDEX(SUBSTRING_INDEX(FLP_FILE_NAME, '.', 3), '.', -1),
             '%d%b%Y'
-        ) BETWEEN %s AND %s
-        """
-        return pd.read_sql(query, self.db_connection, params=[start_date, end_date])
+            ) BETWEEN %s AND %s
+            """ + (" AND FLP_FILE_NAME = %s" if flt_file_name is not None else "")
+            
+        params = [start_date, end_date]
+        if flt_file_name is not None:
+            params.append(flt_file_name)
+            
+        return pd.read_sql(query, self.db_connection, params=params)
     
-    def _extract_mel_table(self, start_date, end_date):
+    def _extract_mel_table(self, start_date, end_date, flt_file_name=None):
         """Extract data from MEL table"""
         query = """
         SELECT ID,FLP_FILE_NAME,REFERENCE_ID,TITLE,TS
-        FROM osusr_fam_fp_arinc633_mel2025 
+        FROM osusr_fam_fp_arinc633_mel 
         WHERE STR_TO_DATE(
             SUBSTRING_INDEX(SUBSTRING_INDEX(FLP_FILE_NAME, '.', 3), '.', -1),
             '%d%b%Y'
         ) BETWEEN %s AND %s
-        """
-        return pd.read_sql(query, self.db_connection, params=[start_date, end_date])
+        """ + (" AND FLP_FILE_NAME = %s" if flt_file_name is not None else "")
+        
+        params = [start_date, end_date]
+        if flt_file_name is not None:
+            params.append(flt_file_name)
+            
+        return pd.read_sql(query, self.db_connection, params=params)
     
-    def _extract_acars_table(self, start_date, end_date):
+    def _extract_acars_table(self, start_date, end_date, callsign=None):
         """Extract data from ACARS table"""
         # Extend date range for ACARS data (2 days before and after)
         start_date_extended = (datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=2)).strftime('%Y-%m-%d')
@@ -159,10 +174,15 @@ class DatabaseExtractor:
         query = """
         SELECT ID,ADDRESS1,ADDRESS2,DATE,FLIGHT,FLIGHTSUFFIX,AIRCRAFT,ETA,DESTINATION,FOB,LOCATION1,LOCATION2,CODE,
                LATITUDE,LONGITUDE,ALTITUDE,GROUNDSPEED,TEMPERATURE,WINDDIRECTION,WINDSPEED,AIRSPEED,REPORTTIME,FUEL,TS
-        FROM osusr_fam_tap_acars_plane202
+        FROM osusr_fam_tap_acars_plane
         WHERE REPORTTIME BETWEEN %s AND %s
-        """
-        return pd.read_sql(query, self.db_connection, params=[start_date_extended, end_date_extended])
+        """ + (" AND FLIGHT = %s" if callsign is not None else "")
+        
+        params = [start_date_extended, end_date_extended]
+        if callsign is not None:
+            params.append(callsign)
+            
+        return pd.read_sql(query, self.db_connection, params=params)
     
     def _extract_equipments_table(self):
         """Extract data from equipments table"""
