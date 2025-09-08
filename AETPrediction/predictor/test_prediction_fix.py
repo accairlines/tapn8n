@@ -24,7 +24,7 @@ def test_flight_data_extraction():
         print("Testing flight data extraction...")
         
         # Test with a sample flight ID
-        test_flight_id = 430654
+        test_flight_id = 431169
         
         flight_data = get_flight_data(test_flight_id)
         

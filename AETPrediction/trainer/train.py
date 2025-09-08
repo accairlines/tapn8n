@@ -239,7 +239,6 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
 
     # --- 1. Build station TIMEDIFF map ---
     station_timediff = {(str(s.get('STATION', '')).strip(), s.get('DAY_NUM')): s.get('TIMEDIFF_MINUTES', 0) for s in stations}
-    station_timediff = {(str(s.get('STATION', '')).strip(), s.get('DAY_NUM')): s.get('TIMEDIFF_MINUTES', 0) for s in stations}
 
     # --- 2. Preprocess flight_plan: keep only latest TS for each (CALLSIGN, DEPARTURE_AIRP, STD) ---
     flight_plan_latest = {}
@@ -260,7 +259,6 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
         from_iata = str(flight.get('FROM_IATA', '')).strip()
         # Convert STD (local) to UTC
         std_local = parse_dt(flight.get('STD'))
-        timediff = station_timediff.get((from_iata, std_local.dayofyear if pd.notnull(std_local) else None), 0)
         timediff = station_timediff.get((from_iata, std_local.dayofyear if pd.notnull(std_local) else None), 0)
         std_utc = std_local - pd.to_timedelta(timediff, unit='m') if pd.notnull(std_local) else pd.NaT
         # Build key for matching

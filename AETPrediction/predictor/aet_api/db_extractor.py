@@ -9,6 +9,7 @@ from django.conf import settings
 from django.db import connections
 from datetime import datetime, timedelta
 import logging
+from sqlalchemy import create_engine
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,24 @@ class DatabaseExtractor:
     """Extract and process data from the database for AET prediction"""
     
     def __init__(self):
-        self.db_connection = connections['default']
+        self.engine = connections['default']
+        # Create SQLAlchemy engine from Django database settings
+        db_config = settings.DATABASES['default']
+        
+        # Build connection string with SSL parameters
+        connection_string = f"mysql+pymysql://{db_config['USER']}:{db_config['PASSWORD']}@{db_config['HOST']}:{db_config['PORT']}/{db_config['NAME']}"
+        
+        # Add SSL parameters if they exist in Django settings
+        ssl_params = {}
+        if 'OPTIONS' in db_config and 'ssl' in db_config['OPTIONS']:
+            ssl_config = db_config['OPTIONS']['ssl']
+            if 'ca' in ssl_config and ssl_config['ca']:
+                ssl_params['ssl_ca'] = ssl_config['ca']
+            # Add other SSL parameters as needed
+            ssl_params['ssl_verify_cert'] = True
+            ssl_params['ssl_verify_identity'] = True
+        
+        self.engine = create_engine(connection_string, connect_args=ssl_params)
         
     def extract_flight_data(self, start_date=None, end_date=None, days_back=2, flight_id=None):
         """
@@ -44,6 +62,8 @@ class DatabaseExtractor:
                 flight_date = flights_df['STD'].iloc[0]
                 start_date = flight_date.strftime('%Y-%m-%d')
                 end_date = flight_date.strftime('%Y-%m-%d')
+                day_num = flight_date.dayofyear
+                station = flights_df['FROM_IATA'].iloc[0]
             else:
                 # Set default date range if not provided
                 if not end_date:
@@ -60,8 +80,8 @@ class DatabaseExtractor:
                 return pd.DataFrame()
             
             # Extract data from all tables
-            flt_nr = flights_df['FLT_NR'].iloc[0] if not flights_df.empty else None
-            flight_plans_df = self._extract_flight_plans_table(start_date, end_date, flt_nr=flt_nr)
+            callsign = flights_df['CALL_SIGN'].iloc[0] if not flights_df.empty else None
+            flight_plans_df = self._extract_flight_plans_table(start_date, end_date, callsign=callsign)
             
             flt_file_name = flight_plans_df['FLP_FILE_NAME'].iloc[0] if not flight_plans_df.empty else None
             waypoints_df = self._extract_waypoints_table(start_date, end_date, flt_file_name=flt_file_name)
@@ -71,7 +91,7 @@ class DatabaseExtractor:
             acars_df = self._extract_acars_table(start_date, end_date, callsign=callsign)
             equipments_df = self._extract_equipments_table()
             aircrafts_df = self._extract_aircrafts_table()
-            stations_df = self._extract_stations_table()
+            stations_df = self._extract_stations_table(station=station, day_num=day_num)
             
             # Join all data together
             combined_df = self._join_all_data(
@@ -100,7 +120,7 @@ class DatabaseExtractor:
         FROM osusr_uuk_flt_info
         WHERE ID = %s
         """
-        result = pd.read_sql(query, self.db_connection, params=[flight_id])
+        result = pd.read_sql(query, self.engine, params=(flight_id,))
         logger.info(f"Found {len(result)} records for flight ID {flight_id}")
         return result
     
@@ -114,30 +134,35 @@ class DatabaseExtractor:
         FROM osusr_uuk_flt_info
         WHERE STD BETWEEN %s AND %s
         """
-        return pd.read_sql(query, self.db_connection, params=[start_date, end_date])
+        return pd.read_sql(query, self.engine, params=(start_date, end_date))
     
-    def _extract_flight_plans_table(self, start_date, end_date, flt_nr=None):
+    def _extract_flight_plans_table(self, start_date, end_date, callsign=None):
         """Extract data from flight plans table"""
         query = """
-        SELECT ID,FLP_FILE_NAME,PLAN_NBR,CATEGORY,COMP_AT,STD,DEP_DATE,CALLSIGN,CAPTAIN,FLT_NBR,DEPARTURE_AIRP,ARRIVAL_AIRP,TAIL,
-               AIRCRAFT_ICAO_TYPE,AIRLINE_SPEC,AUTHOR_DISPACHER,TELEX_ADDR,DISPATCH_OFFICER,PERFORMANCE_FACTOR,AVERAGE_FUEL_FLOW,
-               TAXI_FUEL_FLOW,HOLDING_FUEL_FLOW,ROUTE_NAME,ROUTE_OPTIMIZATION,CLIMB_PROC,CLIMB_CI,CRUISE_PROC,CRUISE_CI,DESCENT_PROC,
-               DESCENT_CI,ROUTE_DESC,GROUND_DIST,AIR_DIST,GREAT_CIRC,TRIP_FUEL,TRIP_DURATION,CONTINGENCY_FUEL,CONTINGENCY_FUEL_DURATION,
-               TAKE_OFF_FUEL,TAKE_OFF_DURATION,TAXI_FUEL,TAXI_FUEL_DURATION,BLOCK_FUEL,BLOCK_FUEL_DURATION,LANDING_FUEL,ARRIVAL_FUEL,
-               DRY_OP_WEIGHT,LOAD_WEIGHT,ZERO_FUEL_WEIGHT,ZERO_FUEL_W_LIMIT,TAKEOFF_WEIGHT,TAKEOFF_W_OP_LIMIT,TAKEOFF_W_STRUCT_LIMIT,
-               LANDING_WEIGHT,LANDING_W_OP_LIMIT,LANDING_W_STRUCT_LIMIT,TS,NULL AS TAXI_OUT_TIME,NULL AS TAXI_IN_TIME,NULL AS FLIGHT_TIME
-        FROM osusr_fam_fp_arinc633 
-        WHERE STR_TO_DATE(
-            SUBSTRING_INDEX(SUBSTRING_INDEX(FLP_FILE_NAME, '.', 3), '.', -1),
-            '%%d%%b%%Y'
-        ) BETWEEN %s AND %s
-        """ + (" AND FLT_NBR = %s" if flt_nr is not None else "")
+        SELECT * FROM (
+            SELECT ID,FLP_FILE_NAME,PLAN_NBR,CATEGORY,COMP_AT,STD,DEP_DATE,CALLSIGN,CAPTAIN,FLT_NBR,DEPARTURE_AIRP,ARRIVAL_AIRP,TAIL,
+                   AIRCRAFT_ICAO_TYPE,AIRLINE_SPEC,AUTHOR_DISPACHER,TELEX_ADDR,DISPATCH_OFFICER,PERFORMANCE_FACTOR,AVERAGE_FUEL_FLOW,
+                   TAXI_FUEL_FLOW,HOLDING_FUEL_FLOW,ROUTE_NAME,ROUTE_OPTIMIZATION,CLIMB_PROC,CLIMB_CI,CRUISE_PROC,CRUISE_CI,DESCENT_PROC,
+                   DESCENT_CI,ROUTE_DESC,GROUND_DIST,AIR_DIST,GREAT_CIRC,TRIP_FUEL,TRIP_DURATION,CONTINGENCY_FUEL,CONTINGENCY_FUEL_DURATION,
+                   TAKE_OFF_FUEL,TAKE_OFF_DURATION,TAXI_FUEL,TAXI_FUEL_DURATION,BLOCK_FUEL,BLOCK_FUEL_DURATION,LANDING_FUEL,ARRIVAL_FUEL,
+                   DRY_OP_WEIGHT,LOAD_WEIGHT,ZERO_FUEL_WEIGHT,ZERO_FUEL_W_LIMIT,TAKEOFF_WEIGHT,TAKEOFF_W_OP_LIMIT,TAKEOFF_W_STRUCT_LIMIT,
+                   LANDING_WEIGHT,LANDING_W_OP_LIMIT,LANDING_W_STRUCT_LIMIT,TS,NULL AS TAXI_OUT_TIME,NULL AS TAXI_IN_TIME,NULL AS FLIGHT_TIME
+            FROM osusr_fam_fp_arinc633 
+            WHERE STR_TO_DATE(
+                SUBSTRING_INDEX(SUBSTRING_INDEX(FLP_FILE_NAME, '.', 3), '.', -1),
+                '%%d%%b%%Y'
+            ) BETWEEN %s AND %s
+            """ + (" AND CALLSIGN = %s" if callsign is not None else "") + """
+            ORDER BY ID DESC
+            LIMIT 1
+        ) sub
+        """
         
         params = [start_date, end_date]
-        if flt_nr is not None:
-            params.append(flt_nr)
+        if callsign is not None:
+            params.append(callsign)
             
-        return pd.read_sql(query, self.db_connection, params=params)
+        return pd.read_sql(query, self.engine, params=tuple(params))
     
     def _extract_waypoints_table(self, start_date, end_date, flt_file_name=None):
         """Extract data from waypoints table"""
@@ -159,7 +184,7 @@ class DatabaseExtractor:
         if flt_file_name is not None:
             params.append(flt_file_name)
             
-        return pd.read_sql(query, self.db_connection, params=params)
+        return pd.read_sql(query, self.engine, params=tuple(params))
     
     def _extract_mel_table(self, start_date, end_date, flt_file_name=None):
         """Extract data from MEL table"""
@@ -176,7 +201,7 @@ class DatabaseExtractor:
         if flt_file_name is not None:
             params.append(flt_file_name)
             
-        return pd.read_sql(query, self.db_connection, params=params)
+        return pd.read_sql(query, self.engine, params=tuple(params))
     
     def _extract_acars_table(self, start_date, end_date, callsign=None):
         """Extract data from ACARS table"""
@@ -195,37 +220,73 @@ class DatabaseExtractor:
         if callsign is not None:
             params.append(callsign)
             
-        return pd.read_sql(query, self.db_connection, params=params)
+        return pd.read_sql(query, self.engine, params=tuple(params))
     
     def _extract_equipments_table(self):
         """Extract data from equipments table"""
         query = "SELECT ID, BODYTYPE, EQUIPTYPE, EQUIPTYPE2 FROM osusr_uuk_equiptype"
-        return pd.read_sql(query, self.db_connection)
+        return pd.read_sql(query, self.engine)
     
     def _extract_aircrafts_table(self):
         """Extract data from aircrafts table"""
         query = "SELECT ACREGISTRATION, EQUIPTYPEID FROM osusr_uuk_registrations"
-        return pd.read_sql(query, self.db_connection)
+        return pd.read_sql(query, self.engine)
     
-    def _extract_stations_table(self):
+    def _extract_stations_table(self, station=None, day_num=None):
         """Extract data from stations table"""
         query = """
         SELECT STATION, TIMEDIFF_MINUTES, DAYS_NUM 
-        FROM view_utc_time_diff_yearly"""
-        return pd.read_sql(query, self.db_connection)
+        FROM view_utc_time_diff_yearly""" + (" WHERE STATION = %s AND DAYS_NUM = %s" if station is not None and day_num is not None else "")
+        
+        params = []
+        if station is not None:
+            params.append(station)
+        if day_num is not None:
+            params.append(day_num)
+        return pd.read_sql(query, self.engine, params=tuple(params))
+    
     
     def _join_all_data(self, flights_df, flight_plans_df, waypoints_df, mel_df, 
                       acars_df, equipments_df, aircrafts_df, stations_df):
         """Join all data sources together"""
+        def parse_dt(val):
+            try:
+                return pd.to_datetime(val, errors='coerce')
+            except Exception:
+                return pd.NaT
         
         # Start with flights as base
         combined_df = flights_df.copy()
+
+        std_local = parse_dt(combined_df.get('STD').iloc[0])
+        std_utc = std_local - pd.to_timedelta(stations_df.get('timediff_minutes').iloc[0], unit='m')
+        combined_df['STD_UTC'] = std_utc
+        acars_callsign = combined_df.get('CALL_SIGN').iloc[0].replace('TAP', 'TP')
+        combined_df['ACARS_CALLSIGN'] = acars_callsign
         
         # Join flight plans on CALL_SIGN and STD
         if not flight_plans_df.empty:
+            # Rename flight plan columns with fp_ prefix
+            fp_rename_dict = {
+                'FLP_FILE_NAME': 'fp_FLP_FILE_NAME',
+                'CAPTAIN': 'fp_CAPTAIN',
+                'AIRCRAFT_ICAO_TYPE': 'fp_AIRCRAFT_ICAO_TYPE',
+                'AIRLINE_SPEC': 'fp_AIRLINE_SPEC',
+                'PERFORMANCE_FACTOR': 'fp_PERFORMANCE_FACTOR',
+                'ROUTE_NAME': 'fp_ROUTE_NAME',
+                'ROUTE_OPTIMIZATION': 'fp_ROUTE_OPTIMIZATION',
+                'CRUISE_CI': 'fp_CRUISE_CI',
+                'CLIMB_PROC': 'fp_CLIMB_PROC',
+                'CRUISE_PROC': 'fp_CRUISE_PROC',
+                'DESCENT_PROC': 'fp_DESCENT_PROC',
+                'GREAT_CIRC': 'fp_GREAT_CIRC',
+                'ZERO_FUEL_WEIGHT': 'fp_ZERO_FUEL_WEIGHT'
+            }
+            flight_plans_renamed = flight_plans_df.rename(columns=fp_rename_dict)
+            
             combined_df = combined_df.merge(
-                flight_plans_df, 
-                left_on=['CALL_SIGN', 'STD'], 
+                flight_plans_renamed, 
+                left_on=['CALL_SIGN', 'STD_UTC'], 
                 right_on=['CALLSIGN', 'STD'], 
                 how='left',
                 suffixes=('', '_fp')
@@ -239,28 +300,19 @@ class DatabaseExtractor:
                 right_on='ID', 
                 how='left'
             )
+            # Rename equipment columns with eq_ prefix
+            eq_rename_dict = {
+                'BODYTYPE': 'eq_BODYTYPE',
+                'EQUIPTYPE': 'eq_EQUIPMENTTYPE',
+                'EQUIPTYPE2': 'eq_EQUIPMENTTYPE2'
+            }
+            aircraft_equipment_renamed = aircraft_equipment.rename(columns=eq_rename_dict)
+            
             combined_df = combined_df.merge(
-                aircraft_equipment[['ACREGISTRATION', 'BODYTYPE', 'EQUIPTYPE', 'EQUIPTYPE2']], 
+                aircraft_equipment_renamed, 
                 left_on='AC_REGISTRATION', 
                 right_on='ACREGISTRATION', 
                 how='left'
-            )
-        
-        # Join stations data
-        if not stations_df.empty:
-            combined_df = combined_df.merge(
-                stations_df, 
-                left_on='FROM_IATA', 
-                right_on='STATION', 
-                how='left',
-                suffixes=('', '_from_station')
-            )
-            combined_df = combined_df.merge(
-                stations_df, 
-                left_on='TO_IATA', 
-                right_on='STATION', 
-                how='left',
-                suffixes=('', '_to_station')
             )
         
         # Process waypoints data - create wp1_ to wp50_ features
@@ -268,8 +320,8 @@ class DatabaseExtractor:
             waypoint_features = self._process_waypoints_data(waypoints_df)
             combined_df = combined_df.merge(
                 waypoint_features, 
-                left_on='CALL_SIGN', 
-                right_on='CALL_SIGN', 
+                left_on='fp_FLP_FILE_NAME', 
+                right_on='FLP_FILE_NAME', 
                 how='left'
             )
         
@@ -279,7 +331,7 @@ class DatabaseExtractor:
             combined_df = combined_df.merge(
                 acars_features, 
                 left_on='CALL_SIGN', 
-                right_on='CALL_SIGN', 
+                right_on='ACARS_CALLSIGN', 
                 how='left'
             )
         
@@ -287,68 +339,51 @@ class DatabaseExtractor:
     
     def _process_waypoints_data(self, waypoints_df):
         """Process waypoints data to create wp1_ to wp50_ features"""
-        waypoint_features = {}
         waypoints_cols = ['SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE']
         
-        # Group by FLP_FILE_NAME and get up to 50 waypoints per flight
-        for flp_file, group in waypoints_df.groupby('FLP_FILE_NAME'):
-            # Sort by SEQUENCE to get ordered waypoints
-            group = group.sort_values('SEQUENCE').head(50)
-            
-            for base_col in waypoints_cols:
-                for i, (_, row) in enumerate(group.iterrows(), 1):
-                    col_name = f'wp{i}_{base_col}'
-                    if col_name not in waypoint_features:
-                        waypoint_features[col_name] = {}
-                    waypoint_features[col_name][flp_file] = row[base_col]
+        # Create all columns at once to avoid fragmentation
+        feature_data = {}
+        feature_data['FLP_FILE_NAME'] = waypoints_df.get('FLP_FILE_NAME').iloc[0]
+        for base_col in waypoints_cols:
+            for i, (_, row) in enumerate(waypoints_df.iterrows(), 1):
+                col_name = f'wp{i}_{base_col}'
+                feature_data[col_name] = row[base_col]
         
-        # Convert to DataFrame
-        waypoint_df = pd.DataFrame(waypoint_features).reset_index()
-        waypoint_df.rename(columns={'index': 'FLP_FILE_NAME'}, inplace=True)
-        
-        # Get CALL_SIGN from flight plans to join properly
-        # This is a simplified approach - you might need to adjust based on your data structure
-        waypoint_df['CALL_SIGN'] = waypoint_df['FLP_FILE_NAME']  # Adjust this mapping as needed
-        
-        return waypoint_df
+        # Create DataFrame with all columns at once
+        waypoint_features = pd.DataFrame([feature_data], index=[0])
+                
+        return waypoint_features
     
     def _process_acars_data(self, acars_df):
-        """Process ACARS data to create ac1_ to ac20_ features"""
-        acars_features = {}
+        """Process ACARS data to create acars1_ to acars20_ features"""
         acars_cols = ['WINDDIRECTION', 'WINDSPEED']
         
-        # Group by FLIGHT and get up to 20 ACARS messages per flight
-        for flight, group in acars_df.groupby('FLIGHT'):
-            # Sort by REPORTTIME to get chronological order
-            group = group.sort_values('REPORTTIME').head(20)
-            
-            for base_col in acars_cols:
-                for i, (_, row) in enumerate(group.iterrows(), 1):
-                    col_name = f'ac{i}_{base_col}'
-                    if col_name not in acars_features:
-                        acars_features[col_name] = {}
-                    acars_features[col_name][flight] = row[base_col]
+        # Create all columns at once to avoid fragmentation
+        feature_data = {}
+        for base_col in acars_cols:
+            for i, (_, row) in enumerate(acars_df.iterrows(), 1):
+                col_name = f'acars{i}_{base_col}'
+                feature_data[col_name] = row[base_col]
         
-        # Convert to DataFrame
-        acars_df_processed = pd.DataFrame(acars_features).reset_index()
-        acars_df_processed.rename(columns={'index': 'FLIGHT'}, inplace=True)
-        acars_df_processed['CALL_SIGN'] = acars_df_processed['FLIGHT']  # Adjust this mapping as needed
-        
-        return acars_df_processed
+        # Create DataFrame with all columns at once
+        acars_features = pd.DataFrame([feature_data], index=[0])
+                
+        return acars_features
     
     def _create_model_features(self, combined_df):
         """Create features in the format expected by the XGBoost model"""
         
-        # Define all required columns as in trainer/preprocess.py
+        # Define all required columns as per model metadata requirements
         all_cols = [
-            'OFFBLOCK', 'MVT', 'ATA', 'ONBLOCK', 'ETA',
-            'FROM_IATA', 'STD', 'CALL_SIGN', 'AC_REGISTRATION',
-            'OPERATOR', 'FLT_NR', 'TO_IATA', 'ETD', 'ATD', 'STA', 'FROM_STAND', 'TO_STAND',
-            'AC_READY', 'TSAT', 'TOBT', 'CTOT', 'SERV_TYP_COD',
-            'FROM_TERMINAL', 'TO_TERMINAL', 'FROM_GATE', 'CAPTAIN', 'AIRCRAFT_ICAO_TYPE',
+            'OPERATOR', 'FLT_NR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'STD', 'ETD', 'ATD', 'STA', 'ETA',
+            'FROM_STAND', 'TO_STAND', 'AC_READY', 'TSAT', 'TOBT', 'CTOT', 'CALL_SIGN', 'SERV_TYP_COD', 'MVT',
+            'fp_CAPTAIN', 'fp_AIRCRAFT_ICAO_TYPE', 'fp_AIRLINE_SPEC', 'fp_PERFORMANCE_FACTOR', 'fp_ROUTE_NAME',
+            'fp_ROUTE_OPTIMIZATION', 'fp_CRUISE_CI', 'fp_CLIMB_PROC', 'fp_CRUISE_PROC', 'fp_DESCENT_PROC',
+            'fp_GREAT_CIRC', 'fp_ZERO_FUEL_WEIGHT', 'eq_BODYTYPE', 'eq_EQUIPMENTTYPE', 'eq_EQUIPMENTTYPE2',
+            'actual_taxi_out', 'actual_airborne', 'actual_taxi_in', 'AET', 'OFFBLOCK', 'ATA', 'ONBLOCK',
+            'CALL_SIGN', 'FROM_TERMINAL', 'TO_TERMINAL', 'FROM_GATE', 'CAPTAIN', 'AIRCRAFT_ICAO_TYPE',
             'AIRLINE_SPEC', 'PERFORMANCE_FACTOR', 'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CRUISE_CI', 'CLIMB_PROC',
-            'CRUISE_PROC', 'DESCENT_PRO', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT',
-            'BODYTYPE', 'EQUIPTYPE', 'EQUIPTYPE2'
+            'CRUISE_PROC', 'DESCENT_PRO', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT', 'BODYTYPE', 'EQUIPTYPE', 'EQUIPTYPE2'
         ]
         
         # Ensure all columns are present
@@ -364,17 +399,17 @@ class DatabaseExtractor:
                 if col not in combined_df.columns:
                     combined_df[col] = None
         
-        # Add ACARS columns (ac1_ to ac20_)
+        # Add ACARS columns (acars1_ to acars20_)
         acars_cols = ['WINDDIRECTION', 'WINDSPEED']
         for base in acars_cols:
             for i in range(1, 21):
-                col = f'ac{i}_{base}'
+                col = f'acars{i}_{base}'
                 if col not in combined_df.columns:
                     combined_df[col] = None
         
         # Select only the columns needed for the model
         model_cols = all_cols + [f'wp{i}_{base}' for base in waypoints_cols for i in range(1, 51)] + \
-                    [f'ac{i}_{base}' for base in acars_cols for i in range(1, 21)]
+                    [f'acars{i}_{base}' for base in acars_cols for i in range(1, 21)]
         
         features_df = combined_df[model_cols].copy()
         

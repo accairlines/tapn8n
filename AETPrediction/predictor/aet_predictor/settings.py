@@ -4,6 +4,10 @@ Django settings for AET predictor API
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -96,7 +100,7 @@ LOGGING = {
         'file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': '/app/logs/django.log',
+            'filename': os.getenv("LOG_PATH", '../logs/django.log'),
         },
         'console': {
             'level': 'INFO',
@@ -112,4 +116,4 @@ LOGGING = {
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField' 
 
-MODEL_PATH = os.getenv('AET_MODEL_PATH')
+MODEL_PATH = os.getenv('AET_MODEL_PATH', './models/model.pkl')
