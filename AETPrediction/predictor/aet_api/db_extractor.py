@@ -199,17 +199,17 @@ class DatabaseExtractor:
     
     def _extract_equipments_table(self):
         """Extract data from equipments table"""
-        query = "SELECT ID, BODYTYPE, EQUIPTYPE, EQUIPTYPE2 FROM equipments"
+        query = "SELECT ID, BODYTYPE, EQUIPTYPE, EQUIPTYPE2 FROM osusr_uuk_equiptype"
         return pd.read_sql(query, self.db_connection)
     
     def _extract_aircrafts_table(self):
         """Extract data from aircrafts table"""
-        query = "SELECT ACREGISTRATION, EQUIPTYPEID FROM aircrafts"
+        query = "SELECT ACREGISTRATION, EQUIPTYPEID FROM osusr_uuk_registrations"
         return pd.read_sql(query, self.db_connection)
     
     def _extract_stations_table(self):
         """Extract data from stations table"""
-        query = "SELECT STATION, TIMEDIFF_MINUTES, DAY_NUM FROM stations_utc"
+        query = "SELECT STATION, TIMEDIFF_MINUTES, DAY_NUM FROM view_utc_conversion_local"
         return pd.read_sql(query, self.db_connection)
     
     def _join_all_data(self, flights_df, flight_plans_df, waypoints_df, mel_df, 
