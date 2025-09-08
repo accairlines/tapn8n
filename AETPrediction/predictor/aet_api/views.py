@@ -72,20 +72,88 @@ def predict_batch(request):
         }, status=500)
 
 def get_flight_data(flight_id):
-    # Set start date to current UTC time
-    start_date = (timezone.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-    end_date = (timezone.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-    flight_data = get_flight_data_for_prediction(start_date=start_date, end_date=end_date, days_back=None, flight_id=flight_id)
+    """Get flight data for prediction - returns dictionary format expected by model"""
+    try:
+        # Set start date to current UTC time
+        start_date = (timezone.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        end_date = (timezone.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+        flight_df = get_flight_data_for_prediction(start_date=start_date, end_date=end_date, days_back=None, flight_id=flight_id)
         
-    return flight_data
+        # Check if we got any data
+        if flight_df.empty:
+            return None
+        
+        # Convert DataFrame to dictionary format expected by the model
+        # Take the first row (should be only one for single flight)
+        flight_row = flight_df.iloc[0]
+        
+        # Map database extractor columns to model expected format
+        flight_data = {
+            'ID': flight_row.get('ID'),
+            'AIRCRAFT_ICAO_TYPE': flight_row.get('AIRCRAFT_ICAO_TYPE', 'A320'),
+            'DEPARTURE_AIRP': flight_row.get('FROM_IATA', 'UNK'),
+            'ARRIVAL_AIRP': flight_row.get('TO_IATA', 'UNK'),
+            'STD': flight_row.get('STD'),
+            'TAXI_OUT_TIME': flight_row.get('TAXI_OUT_TIME', 15),  # Default 15 minutes
+            'FLIGHT_TIME': flight_row.get('FLIGHT_TIME', 60),      # Default 60 minutes
+            'TAXI_IN_TIME': flight_row.get('TAXI_IN_TIME', 10),    # Default 10 minutes
+            'CALLSIGN': flight_row.get('CALL_SIGN', ''),
+            'AC_REGISTRATION': flight_row.get('AC_REGISTRATION', ''),
+            'OPERATOR': flight_row.get('OPERATOR', ''),
+            'FLT_NR': flight_row.get('FLT_NR', ''),
+            'FROM_TERMINAL': flight_row.get('FROM_TERMINAL', ''),
+            'TO_TERMINAL': flight_row.get('TO_TERMINAL', ''),
+            'FROM_GATE': flight_row.get('FROM_GATE', ''),
+            'FROM_STAND': flight_row.get('FROM_STAND', ''),
+            'TO_STAND': flight_row.get('TO_STAND', ''),
+            'CAPTAIN': flight_row.get('CAPTAIN', ''),
+            'AIRLINE_SPEC': flight_row.get('AIRLINE_SPEC', ''),
+            'PERFORMANCE_FACTOR': flight_row.get('PERFORMANCE_FACTOR', 1.0),
+            'ROUTE_NAME': flight_row.get('ROUTE_NAME', ''),
+            'ROUTE_OPTIMIZATION': flight_row.get('ROUTE_OPTIMIZATION', ''),
+            'CRUISE_CI': flight_row.get('CRUISE_CI', 0),
+            'CLIMB_PROC': flight_row.get('CLIMB_PROC', ''),
+            'CRUISE_PROC': flight_row.get('CRUISE_PROC', ''),
+            'DESCENT_PRO': flight_row.get('DESCENT_PRO', ''),
+            'GREAT_CIRC': flight_row.get('GREAT_CIRC', 0),
+            'ZERO_FUEL_WEIGHT': flight_row.get('ZERO_FUEL_WEIGHT', 0),
+            'BODYTYPE': flight_row.get('BODYTYPE', ''),
+            'EQUIPTYPE': flight_row.get('EQUIPTYPE', ''),
+            'EQUIPTYPE2': flight_row.get('EQUIPTYPE2', ''),
+            # Add calculated fields that the model might expect
+            'route_distance': flight_row.get('GREAT_CIRC', 500),
+            'max_flight_time': flight_row.get('FLIGHT_TIME', 90),
+            'mel_count': 0,  # Default - would need to calculate from MEL data
+            'avg_wind_speed': 10,  # Default - would need to calculate from waypoints
+            'max_wind_speed': 20,  # Default - would need to calculate from waypoints
+            'avg_temperature': 15,  # Default - would need to calculate from waypoints
+            'max_altitude': 35000   # Default - would need to calculate from waypoints
+        }
+        
+        return flight_data
+        
+    except Exception as e:
+        logger.error(f"Error getting flight data for ID {flight_id}: {str(e)}")
+        return None
 
 def get_recent_flights(minutes=30):
-    # Set start date to current UTC time
-    start_date = (timezone.now() - timedelta(minutes=30)).strftime('%Y-%m-%d')
-    end_date = (timezone.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-    flight_data = get_flight_data_for_prediction(start_date=start_date, end_date=end_date, days_back=None, flight_id=None)
-
-    return flight_data
+    """Get flight IDs that departed in the last N minutes"""
+    try:
+        # Set start date to current UTC time
+        start_date = (timezone.now() - timedelta(minutes=minutes)).strftime('%Y-%m-%d')
+        end_date = (timezone.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+        flight_df = get_flight_data_for_prediction(start_date=start_date, end_date=end_date, days_back=None, flight_id=None)
+        
+        # Extract flight IDs from the DataFrame
+        if flight_df.empty:
+            return []
+        
+        # Return list of flight IDs
+        return flight_df['ID'].tolist() if 'ID' in flight_df.columns else []
+        
+    except Exception as e:
+        logger.error(f"Error getting recent flights: {str(e)}")
+        return []
 
 def format_prediction_response(flight_id, prediction, flight_data):
     """Format prediction into API response"""
