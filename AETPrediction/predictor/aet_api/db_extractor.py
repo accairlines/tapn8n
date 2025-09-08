@@ -209,7 +209,10 @@ class DatabaseExtractor:
     
     def _extract_stations_table(self):
         """Extract data from stations table"""
-        query = "SELECT STATION, TIMEDIFF_MINUTES, DAY_NUM FROM view_utc_conversion_local"
+        query = """
+        SELECT STATION, TIMEDIFF_MINUTES, DAY_NUM 
+        FROM view_utc_time_diff_yearly 
+        WHERE STATION = %s """
         return pd.read_sql(query, self.db_connection)
     
     def _join_all_data(self, flights_df, flight_plans_df, waypoints_df, mel_df, 
