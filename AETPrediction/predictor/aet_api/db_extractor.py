@@ -116,7 +116,7 @@ class DatabaseExtractor:
         FROM osusr_fam_fp_arinc633 
         WHERE STR_TO_DATE(
             SUBSTRING_INDEX(SUBSTRING_INDEX(FLP_FILE_NAME, '.', 3), '.', -1),
-            '%d%b%Y'
+            '%%d%%b%%Y'
         ) BETWEEN %s AND %s
         """ + (" AND FLT_NBR = %s" if flt_nr is not None else "")
         
@@ -138,7 +138,7 @@ class DatabaseExtractor:
         FROM osusr_fam_fp_arinc633_wp 
         WHERE STR_TO_DATE(
             SUBSTRING_INDEX(SUBSTRING_INDEX(FLP_FILE_NAME, '.', 3), '.', -1),
-            '%d%b%Y'
+            '%%d%%b%%Y'
             ) BETWEEN %s AND %s
             """ + (" AND FLP_FILE_NAME = %s" if flt_file_name is not None else "")
             
@@ -155,7 +155,7 @@ class DatabaseExtractor:
         FROM osusr_fam_fp_arinc633_mel 
         WHERE STR_TO_DATE(
             SUBSTRING_INDEX(SUBSTRING_INDEX(FLP_FILE_NAME, '.', 3), '.', -1),
-            '%d%b%Y'
+            '%%d%%b%%Y'
         ) BETWEEN %s AND %s
         """ + (" AND FLP_FILE_NAME = %s" if flt_file_name is not None else "")
         
