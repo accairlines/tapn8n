@@ -86,7 +86,7 @@ class DatabaseExtractor:
                FROM_TERMINAL,FROM_GATE,FROM_STAND,TO_TERMINAL,TO_STAND,TO_BELT,DOOROPEN,DOORCLOSED,HULLOPEN,HULLCLOSED,
                AC_READY,TSAT,ASSIGNUSER,ISOTPDISMISS,PAX_BOOKED,PAX_CHECKED,PAX_BOARDED,CARGO,CAPACITY,STATUS,
                LAST_BAGMSGS_PROC,SEMAPHORE,CALL_SIGN,OFFBLOCK,TOBT,CTOT,HAUL_IND,AC_OWNER,SERV_TYP_COD,NI,MVT,TSAT_STATUS,CHG_REASON
-        FROM osusr_uuk_flt_info2025
+        FROM osusr_uuk_flt_info
         WHERE ID = %s
         """
         return pd.read_sql(query, self.db_connection, params=[flight_id])
@@ -98,7 +98,7 @@ class DatabaseExtractor:
                FROM_TERMINAL,FROM_GATE,FROM_STAND,TO_TERMINAL,TO_STAND,TO_BELT,DOOROPEN,DOORCLOSED,HULLOPEN,HULLCLOSED,
                AC_READY,TSAT,ASSIGNUSER,ISOTPDISMISS,PAX_BOOKED,PAX_CHECKED,PAX_BOARDED,CARGO,CAPACITY,STATUS,
                LAST_BAGMSGS_PROC,SEMAPHORE,CALL_SIGN,OFFBLOCK,TOBT,CTOT,HAUL_IND,AC_OWNER,SERV_TYP_COD,NI,MVT,TSAT_STATUS,CHG_REASON
-        FROM osusr_uuk_flt_info2025
+        FROM osusr_uuk_flt_info
         WHERE STD BETWEEN %s AND %s
         """
         return pd.read_sql(query, self.db_connection, params=[start_date, end_date])
