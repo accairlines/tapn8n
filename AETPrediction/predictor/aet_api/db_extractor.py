@@ -54,11 +54,21 @@ class DatabaseExtractor:
                 logger.info(f"Extracting flight data from {start_date} to {end_date}")
                 flights_df = self._extract_flights_table(start_date, end_date)
             
+            # Check if we have any flight data
+            if flights_df.empty:
+                logger.warning("No flight data found for the given criteria")
+                return pd.DataFrame()
+            
             # Extract data from all tables
-            flight_plans_df = self._extract_flight_plans_table(start_date, end_date, flt_nr=flights_df['FLT_NR'].iloc[0])
-            waypoints_df = self._extract_waypoints_table(start_date, end_date, flt_file_name=flight_plans_df['FLP_FILE_NAME'].iloc[0])
-            mel_df = self._extract_mel_table(start_date, end_date, flt_file_name=flight_plans_df['FLP_FILE_NAME'].iloc[0])
-            acars_df = self._extract_acars_table(start_date, end_date, callsign=flights_df['CALL_SIGN'].iloc[0].replace('TAP', 'TP'))
+            flt_nr = flights_df['FLT_NR'].iloc[0] if not flights_df.empty else None
+            flight_plans_df = self._extract_flight_plans_table(start_date, end_date, flt_nr=flt_nr)
+            
+            flt_file_name = flight_plans_df['FLP_FILE_NAME'].iloc[0] if not flight_plans_df.empty else None
+            waypoints_df = self._extract_waypoints_table(start_date, end_date, flt_file_name=flt_file_name)
+            mel_df = self._extract_mel_table(start_date, end_date, flt_file_name=flt_file_name)
+            
+            callsign = flights_df['CALL_SIGN'].iloc[0].replace('TAP', 'TP') if not flights_df.empty and 'CALL_SIGN' in flights_df.columns else None
+            acars_df = self._extract_acars_table(start_date, end_date, callsign=callsign)
             equipments_df = self._extract_equipments_table()
             aircrafts_df = self._extract_aircrafts_table()
             stations_df = self._extract_stations_table()
@@ -81,6 +91,7 @@ class DatabaseExtractor:
     
     def _extract_single_flight(self, flight_id):
         """Extract data for a specific flight by ID"""
+        logger.info(f"Looking for flight with ID: {flight_id} (type: {type(flight_id)})")
         query = """
         SELECT ID,OPERATOR,FLT_NR,AC_REGISTRATION,FROM_IATA,TO_IATA,DIV_IATA,STD,ETD,ATD,STA,ETA,ATA,ONBLOCK,
                FROM_TERMINAL,FROM_GATE,FROM_STAND,TO_TERMINAL,TO_STAND,TO_BELT,DOOROPEN,DOORCLOSED,HULLOPEN,HULLCLOSED,
@@ -89,7 +100,9 @@ class DatabaseExtractor:
         FROM osusr_uuk_flt_info
         WHERE ID = %s
         """
-        return pd.read_sql(query, self.db_connection, params=[flight_id])
+        result = pd.read_sql(query, self.db_connection, params=[flight_id])
+        logger.info(f"Found {len(result)} records for flight ID {flight_id}")
+        return result
     
     def _extract_flights_table(self, start_date, end_date):
         """Extract data from flights table"""
