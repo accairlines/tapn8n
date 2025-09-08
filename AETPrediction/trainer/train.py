@@ -69,7 +69,6 @@ def load_data():
     equipments_cols = ['ID', 'BODYTYPE', 'EQUIPTYPE', 'EQUIPTYPE2']
     aircrafts_cols = ['ACREGISTRATION', 'EQUIPTYPEID']
     stations_cols = ['STATION', 'TIMEDIFF_MINUTES', 'DAY_NUM']
-    stations_cols = ['STATION', 'TIMEDIFF_MINUTES', 'DAY_NUM']
 
     def read_multi_csv_to_dicts(pattern, usecols=None):
         files = glob.glob(pattern)
@@ -578,7 +577,6 @@ def main():
         
         # Calculate actual times
         logging.info("=== Calculating Actual Times ===")
-        flights = calculate_planned_actual_times(flights)
         flights = calculate_planned_actual_times(flights)
         logging.info("=== Calculating Actual Times Completed ===")
         
