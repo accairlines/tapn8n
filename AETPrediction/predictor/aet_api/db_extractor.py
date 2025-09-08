@@ -210,7 +210,7 @@ class DatabaseExtractor:
     def _extract_stations_table(self):
         """Extract data from stations table"""
         query = """
-        SELECT STATION, TIMEDIFF_MINUTES, DAY_NUM 
+        SELECT STATION, TIMEDIFF_MINUTES, DAYS_NUM 
         FROM view_utc_time_diff_yearly"""
         return pd.read_sql(query, self.db_connection)
     
