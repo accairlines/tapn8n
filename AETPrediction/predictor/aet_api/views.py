@@ -107,45 +107,45 @@ def get_flight_data(flight_id):
         # Map database extractor columns to model expected format
         model_data = {
             # Basic flight information
-            'ID': flight_data.get('ID'),
-            'OPERATOR': flight_data.get('OPERATOR', ''),
-            'FLT_NR': flight_data.get('FLT_NR', ''),
-            'AC_REGISTRATION': flight_data.get('AC_REGISTRATION', ''),
-            'FROM_IATA': flight_data.get('FROM_IATA', 'UNK'),
-            'TO_IATA': flight_data.get('TO_IATA', 'UNK'),
-            'STD': flight_data.get('STD'),
-            'ETD': flight_data.get('ETD'),
-            'ATD': flight_data.get('ATD'),
-            'STA': flight_data.get('STA'),
-            'ETA': flight_data.get('ETA'),
-            'FROM_STAND': flight_data.get('FROM_STAND', ''),
-            'TO_STAND': flight_data.get('TO_STAND', ''),
-            'AC_READY': flight_data.get('AC_READY'),
-            'TSAT': flight_data.get('TSAT'),
-            'TOBT': flight_data.get('TOBT'),
-            'CTOT': flight_data.get('CTOT'),
-            'CALL_SIGN': flight_data.get('CALL_SIGN', ''),
-            'SERV_TYP_COD': flight_data.get('SERV_TYP_COD', ''),
-            'MVT': flight_data.get('MVT'),
+            'OPERATOR': flight_data.get('OPERATOR', -1),
+            'FLT_NR': flight_data.get('FLT_NR', -1),
+            'AC_REGISTRATION': flight_data.get('AC_REGISTRATION', -1),
+            'FROM_IATA': flight_data.get('FROM_IATA', ),
+            'TO_IATA': flight_data.get('TO_IATA', -1),
+            'STD': flight_data.get('STD', -1),
+            'ETD': flight_data.get('ETD', -1),
+            'ATD': flight_data.get('ATD', -1),
+            'STA': flight_data.get('STA', -1),
+            'ETA': flight_data.get('ETA', -1),
+            'FROM_STAND': flight_data.get('FROM_STAND', -1),
+            'TO_STAND': flight_data.get('TO_STAND', -1),
+            'AC_READY': flight_data.get('AC_READY', -1),
+            'TSAT': flight_data.get('TSAT', -1),
+            'TOBT': flight_data.get('TOBT', -1),
+            'CTOT': flight_data.get('CTOT', -1),
+            'CALL_SIGN': flight_data.get('CALL_SIGN', -1),
+            'SERV_TYP_COD': flight_data.get('SERV_TYP_COD', -1)
+            'MVT': flight_data.get('MVT', -1),
             
             # Flight plan data with fp_ prefix
-            'fp_CAPTAIN': flight_data.get('fp_CAPTAIN', ''),
-            'fp_AIRCRAFT_ICAO_TYPE': flight_data.get('fp_AIRCRAFT_ICAO_TYPE', ''),
-            'fp_AIRLINE_SPEC': flight_data.get('fp_AIRLINE_SPEC', ''),
-            'fp_PERFORMANCE_FACTOR': flight_data.get('fp_PERFORMANCE_FACTOR', 1.0),
-            'fp_ROUTE_NAME': flight_data.get('fp_ROUTE_NAME', ''),
-            'fp_ROUTE_OPTIMIZATION': flight_data.get('fp_ROUTE_OPTIMIZATION', ''),
-            'fp_CRUISE_CI': flight_data.get('fp_CRUISE_CI', 0),
-            'fp_CLIMB_PROC': flight_data.get('fp_CLIMB_PROC', ''),
-            'fp_CRUISE_PROC': flight_data.get('fp_CRUISE_PROC', ''),
-            'fp_DESCENT_PROC': flight_data.get('fp_DESCENT_PROC', ''),
-            'fp_GREAT_CIRC': flight_data.get('fp_GREAT_CIRC', 0),
-            'fp_ZERO_FUEL_WEIGHT': flight_data.get('fp_ZERO_FUEL_WEIGHT', 0),
+            'fp_CAPTAIN': flight_data.get('fp_CAPTAIN', -1),
+            'fp_AIRCRAFT_ICAO_TYPE': flight_data.get('fp_AIRCRAFT_ICAO_TYPE', -1),
+            'fp_AIRLINE_SPEC': flight_data.get('fp_AIRLINE_SPEC', -1),
+            'fp_PERFORMANCE_FACTOR': flight_data.get('fp_PERFORMANCE_FACTOR', -1),
+            'fp_ROUTE_NAME': flight_data.get('fp_ROUTE_NAME', -1),
+            'fp_ROUTE_OPTIMIZATION': flight_data.get('fp_ROUTE_OPTIMIZATION', -1),
+            'fp_CRUISE_CI': flight_data.get('fp_CRUISE_CI', -1),
+            'fp_CLIMB_PROC': flight_data.get('fp_CLIMB_PROC', -1),
+            'fp_CRUISE_PROC': flight_data.get('fp_CRUISE_PROC', -1),
+            'fp_DESCENT_PROC': flight_data.get('fp_DESCENT_PROC', -1),
+            'fp_DESCENT_PROC': flight_data.get('fp_DESCENT_PROC', -1),
+            'fp_GREAT_CIRC': flight_data.get('fp_GREAT_CIRC', -1),
+            'fp_ZERO_FUEL_WEIGHT': flight_data.get('fp_ZERO_FUEL_WEIGHT', -1),
             
             # Equipment data with eq_ prefix
-            'eq_BODYTYPE': flight_data.get('eq_BODYTYPE', ''),
-            'eq_EQUIPMENTTYPE': flight_data.get('eq_EQUIPMENTTYPE', ''),
-            'eq_EQUIPMENTTYPE2': flight_data.get('eq_EQUIPMENTTYPE2', ''),
+            'eq_BODYTYPE': flight_data.get('eq_BODYTYPE', -1),
+            'eq_EQUIPMENTTYPE': flight_data.get('eq_EQUIPMENTTYPE', -1),
+            'eq_EQUIPMENTTYPE2': flight_data.get('eq_EQUIPMENTTYPE2', -1),
             
             # Waypoint data (wp1_ to wp50_)
             **{f'wp{i}_SEG_WIND_DIRECTION': flight_data.get(f'wp{i}_SEG_WIND_DIRECTION', -1) for i in range(1, 51)},
@@ -157,42 +157,42 @@ def get_flight_data(flight_id):
             **{f'acars{i}_WINDSPEED': flight_data.get(f'acars{i}_WINDSPEED', -1) for i in range(1, 21)},
             
             # Actual times and AET (from calculated values)
-            'actual_taxi_out': flight_data.get('actual_taxi_out', 15),
-            'actual_airborne': flight_data.get('actual_airborne', 60),
-            'actual_taxi_in': flight_data.get('actual_taxi_in', 10),
-            'AET': flight_data.get('AET'),
-            'OFFBLOCK': flight_data.get('OFFBLOCK'),
-            'ATA': flight_data.get('ATA'),
-            'ONBLOCK': flight_data.get('ONBLOCK'),
+            'actual_taxi_out': flight_data.get('actual_taxi_out', -1),
+            'actual_airborne': flight_data.get('actual_airborne', -1),
+            'actual_taxi_in': flight_data.get('actual_taxi_in', -1),
+            'AET': flight_data.get('AET', -1),
+            'OFFBLOCK': flight_data.get('OFFBLOCK', -1),
+            'ATA': flight_data.get('ATA', -1),
+            'ONBLOCK': flight_data.get('ONBLOCK', -1),
             
             # Additional fields for compatibility
-            'CALL_SIGN': flight_data.get('CALL_SIGN', ''),
-            'FROM_TERMINAL': flight_data.get('FROM_TERMINAL', ''),
-            'TO_TERMINAL': flight_data.get('TO_TERMINAL', ''),
-            'FROM_GATE': flight_data.get('FROM_GATE', ''),
-            'CAPTAIN': flight_data.get('CAPTAIN', ''),
-            'AIRCRAFT_ICAO_TYPE': flight_data.get('AIRCRAFT_ICAO_TYPE', 'A320'),
-            'AIRLINE_SPEC': flight_data.get('AIRLINE_SPEC', ''),
-            'PERFORMANCE_FACTOR': flight_data.get('PERFORMANCE_FACTOR', 1.0),
-            'ROUTE_NAME': flight_data.get('ROUTE_NAME', ''),
-            'ROUTE_OPTIMIZATION': flight_data.get('ROUTE_OPTIMIZATION', ''),
-            'CRUISE_CI': flight_data.get('CRUISE_CI', 0),
-            'CLIMB_PROC': flight_data.get('CLIMB_PROC', ''),
-            'CRUISE_PROC': flight_data.get('CRUISE_PROC', ''),
-            'DESCENT_PRO': flight_data.get('DESCENT_PRO', ''),
-            'GREAT_CIRC': flight_data.get('GREAT_CIRC', 0),
-            'ZERO_FUEL_WEIGHT': flight_data.get('ZERO_FUEL_WEIGHT', 0),
-            'BODYTYPE': flight_data.get('BODYTYPE', ''),
-            'EQUIPTYPE': flight_data.get('EQUIPTYPE', ''),
-            'EQUIPTYPE2': flight_data.get('EQUIPTYPE2', ''),
+            'CALL_SIGN': flight_data.get('CALL_SIGN', -1)
+            'FROM_TERMINAL': flight_data.get('FROM_TERMINAL', -1)
+            'TO_TERMINAL': flight_data.get('TO_TERMINAL', -1)
+            'FROM_GATE': flight_data.get('FROM_GATE', -1)
+            'CAPTAIN': flight_data.get('CAPTAIN', -1)
+            'AIRCRAFT_ICAO_TYPE': flight_data.get('AIRCRAFT_ICAO_TYPE', -1),
+            'AIRLINE_SPEC': flight_data.get('AIRLINE_SPEC', -1)
+            'PERFORMANCE_FACTOR': flight_data.get('PERFORMANCE_FACTOR', -1),
+            'ROUTE_NAME': flight_data.get('ROUTE_NAME', -1)
+            'ROUTE_OPTIMIZATION': flight_data.get('ROUTE_OPTIMIZATION', -1)
+            'CRUISE_CI': flight_data.get('CRUISE_CI', -1),
+            'CLIMB_PROC': flight_data.get('CLIMB_PROC', -1)
+            'CRUISE_PROC': flight_data.get('CRUISE_PROC', -1)
+            'DESCENT_PRO': flight_data.get('DESCENT_PRO', -1)
+            'GREAT_CIRC': flight_data.get('GREAT_CIRC', -1),
+            'ZERO_FUEL_WEIGHT': flight_data.get('ZERO_FUEL_WEIGHT', -1),
+            'BODYTYPE': flight_data.get('BODYTYPE', -1)
+            'EQUIPTYPE': flight_data.get('EQUIPTYPE', -1)
+            'EQUIPTYPE2': flight_data.get('EQUIPTYPE2', -1)
             
             # Legacy fields for backward compatibility
-            'DEPARTURE_AIRP': flight_data.get('FROM_IATA', 'UNK'),
-            'ARRIVAL_AIRP': flight_data.get('TO_IATA', 'UNK'),
-            'TAXI_OUT_TIME': flight_data.get('TAXI_OUT_TIME', 15),
-            'FLIGHT_TIME': flight_data.get('FLIGHT_TIME', 60),
-            'TAXI_IN_TIME': flight_data.get('TAXI_IN_TIME', 10),
-            'CALLSIGN': flight_data.get('CALL_SIGN', '')
+            'DEPARTURE_AIRP': flight_data.get('FROM_IATA', -1),
+            'ARRIVAL_AIRP': flight_data.get('TO_IATA', -1),
+            'TAXI_OUT_TIME': flight_data.get('TAXI_OUT_TIME', -1),
+            'FLIGHT_TIME': flight_data.get('FLIGHT_TIME', -1),
+            'TAXI_IN_TIME': flight_data.get('TAXI_IN_TIME', -1),
+            'CALLSIGN': flight_data.get('CALL_SIGN', -1)
         }
         
         return model_data
