@@ -67,13 +67,14 @@ def load_data():
     aircrafts_cols = ['ACREGISTRATION', 'EQUIPTYPEID']
     stations_cols = ['STATION', 'TIMEDIFF_MINUTES', 'DAY_NUM']
 
-    def read_multi_csv_to_dicts(pattern, usecols=None):
-        files = glob.glob(pattern)
+    def read_multi_csv_to_dicts(root, pattern, usecols=None):
+        files = glob.glob(os.path.join(root, pattern))
         if not files:
             logging.warning(f"No files found for pattern: {pattern}, returning empty list")
             return []
         df_list = []
         for f in files:
+            logging.info(f"Reading file: {f}")
             df = pd.read_csv(f, encoding='latin1')
             if usecols is not None:
                 missing_cols = [col for col in usecols if col not in df.columns]
@@ -133,10 +134,10 @@ def load_data():
         wp_pattern = os.path.join(root, 'fp_arinc633_wp_*.csv')
         mel_pattern = os.path.join(root, 'fp_arinc633_mel_*.csv')
         
-        all_flights.extend(read_multi_csv_to_dicts(flights_pattern, usecols=flights_cols))
-        all_flight_plans.extend(read_multi_csv_to_dicts(fp_pattern, usecols=flight_plan_cols))
-        all_waypoints.extend(read_multi_csv_to_dicts(wp_pattern, usecols=waypoints_cols))
-        all_mel.extend(read_multi_csv_to_dicts(mel_pattern, usecols=mel_cols))
+        all_flights.extend(read_multi_csv_to_dicts(root, flights_pattern, usecols=flights_cols))
+        all_flight_plans.extend(read_multi_csv_to_dicts(root, fp_pattern, usecols=flight_plan_cols))
+        all_waypoints.extend(read_multi_csv_to_dicts(root, wp_pattern, usecols=waypoints_cols))
+        all_mel.extend(read_multi_csv_to_dicts(root, mel_pattern, usecols=mel_cols))
         
     flights = all_flights
     flight_plan = all_flight_plans  
