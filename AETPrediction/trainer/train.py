@@ -127,7 +127,7 @@ def load_data():
     for root, dirs, files in os.walk(DATA_PATH):
         if 'cache' in root:
             continue
-            
+        logging.info(f"Processing files for path{str(root)}")
         flights_pattern = os.path.join(root, 'flight_*.csv') 
         fp_pattern = os.path.join(root, 'fp_arinc633_fp_*.csv')
         wp_pattern = os.path.join(root, 'fp_arinc633_wp_*.csv')
@@ -142,6 +142,11 @@ def load_data():
     flight_plan = all_flight_plans  
     waypoints = all_waypoints
     mel = all_mel
+    
+    logging.info(f"Loaded {len(all_flights)} flights (as dicts)")
+    logging.info(f"Loaded {len(all_flight_plans)} flight plans (as dicts)")
+    logging.info(f"Loaded {len(all_waypoints)} waypoints (as dicts)")
+    logging.info(f"Loaded {len(all_mel)} mel (as dicts)")
     
     # Load ACARS data and replace TP with TAP in FLIGHT column
     acars = read_acars_files()
