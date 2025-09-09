@@ -46,19 +46,16 @@ def load_data():
 
     # Define required columns for each file type
     flights_cols = [
-        'OFFBLOCK', 'MVT', 'ATA', 'ONBLOCK', 'ETA',
-        'FROM_IATA', 'STD', 'CALL_SIGN', 'AC_REGISTRATION',
-        'OPERATOR', 'FLT_NR', 'TO_IATA', 'ETD', 'ATD', 'STA', 'FROM_STAND', 'TO_STAND',
-        'AC_READY', 'TSAT', 'TOBT', 'CTOT', 'SERV_TYP_COD',
-        'FROM_TERMINAL', 'TO_TERMINAL', 'FROM_GATE'
+        'OPERATOR', 'FLT_NR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'DIV_IATA', 'STD', 'ETD', 'ATD', 'STA',
+        'ETA', 'ATA', 'ONBLOCK', 'FROM_TERMINAL', 'FROM_GATE', 'FROM_STAND', 'TO_TERMINAL', 'TO_STAND', 'AC_READY',
+        'TSAT', 'PAX_BOARDED', 'CARGO', 'CAPACITY', 'CALL_SIGN', 'OFFBLOCK', 'TOBT', 'CTOT', 'SERV_TYP_COD', 'MVT',
+        'CHG_REASON', 
     ]
     flight_plan_cols = [
-        'CALLSIGN', 'DEPARTURE_AIRP', 'STD', 'TS', 'FLP_FILE_NAME',
-        'CAPTAIN', 'AIRCRAFT_ICAO_TYPE', 'AIRLINE_SPEC', 'PERFORMANCE_FACTOR',
-        'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CRUISE_CI', 'CLIMB_PROC',
-        'CRUISE_PROC', 'DESCENT_PRO', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT',
-        'TRIP_DURATION', 'TAXI_OUT_TIME', 'FLIGHT_TIME', 'TAXI_IN_TIME', 
-        'ARRIVAL_AIRP'
+        'FLP_FILE_NAME', 'STD', 'CALLSIGN', 'CAPTAIN', 'DEPARTURE_AIRP', 'ARRIVAL_AIRP', 'AIRCRAFT_ICAO_TYPE',
+        'AIRLINE_SPEC','PERFORMANCE_FACTOR', 'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CLIMB_PROC', 'CLIMB_CI', 'CRUISE_PROC',
+        'CRUISE_CI', 'DESCENT_PROC', 'DESCENT_CI', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT', 'TAXI_OUT_TIME', 'TAXI_IN_TIME',
+        'FLIGHT_TIME'
     ]
     waypoints_cols = [
         'ALTITUDE', 'SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE',
@@ -121,11 +118,30 @@ def load_data():
             logging.warning(f"Error reading ACARS files: {str(e)}, returning empty list")
             return []
 
-    # Load main tables (supporting multiple files)
-    flights = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'flight_*.csv'), usecols=flights_cols)
-    flight_plan = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'fp_arinc633_fp_*.csv'), usecols=flight_plan_cols)
-    waypoints = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'fp_arinc633_wp_*.csv'), usecols=waypoints_cols)
-    mel = read_multi_csv_to_dicts(os.path.join(DATA_PATH, 'fp_arinc633_mel_*.csv'), usecols=mel_cols)
+    # Load main tables from all subdirectories except cache
+    all_flights = []
+    all_flight_plans = []
+    all_waypoints = []
+    all_mel = []
+    
+    for root, dirs, files in os.walk(DATA_PATH):
+        if 'cache' in root:
+            continue
+            
+        flights_pattern = os.path.join(root, 'flight_*.csv') 
+        fp_pattern = os.path.join(root, 'fp_arinc633_fp_*.csv')
+        wp_pattern = os.path.join(root, 'fp_arinc633_wp_*.csv')
+        mel_pattern = os.path.join(root, 'fp_arinc633_mel_*.csv')
+        
+        all_flights.extend(read_multi_csv_to_dicts(flights_pattern, usecols=flights_cols))
+        all_flight_plans.extend(read_multi_csv_to_dicts(fp_pattern, usecols=flight_plan_cols))
+        all_waypoints.extend(read_multi_csv_to_dicts(wp_pattern, usecols=waypoints_cols))
+        all_mel.extend(read_multi_csv_to_dicts(mel_pattern, usecols=mel_cols))
+        
+    flights = all_flights
+    flight_plan = all_flight_plans  
+    waypoints = all_waypoints
+    mel = all_mel
     
     # Load ACARS data and replace TP with TAP in FLIGHT column
     acars = read_acars_files()
@@ -337,7 +353,6 @@ def train_models(features, targets):
     
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(
-        features_numeric, targets, test_size=0.2, random_state=42
         features_numeric, targets, test_size=0.2, random_state=42
     )
     
