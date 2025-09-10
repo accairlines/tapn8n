@@ -102,28 +102,38 @@ def load_data():
             logging.warning(f"Error reading {file_path}: {str(e)}, returning empty list")
             return []
 
-    def read_acars_files():
+    def read_acars_files(root, pattern, usecols=None):
         """Read ACARS files and return as list of dicts, return empty list if no files found"""
-        acars_files = glob.glob(os.path.join(DATA_PATH, 'acars_*.csv'))
-        if not acars_files:
-            logging.warning("No ACARS files found, returning empty list")
+        files = glob.glob(os.path.join(root, pattern))
+        if not files:
+            logging.warning(f"No files found for pattern: {pattern}, returning empty list")
             return []
-        
-        try:
-            acars_df = pd.concat([
-                pd.read_csv(f, usecols=acars_cols) for f in acars_files
-            ], ignore_index=True)
-            acars_df['CALLSIGN'] = acars_df['FLIGHT'].str.replace('TP', 'TAP')
-            return acars_df.to_dict('records')
-        except Exception as e:
-            logging.warning(f"Error reading ACARS files: {str(e)}, returning empty list")
-            return []
+        df_list = []
+        for f in files:
+            logging.info(f"Reading file: {f}")
+            df = pd.read_csv(f, encoding='latin1')
+            if usecols is not None:
+                missing_cols = [col for col in usecols if col not in df.columns]
+                for col in missing_cols:
+                    df[col] = None
+                df = df.reindex(columns=usecols)
+                df['CALLSIGN'] = df['FLIGHT'].str.replace('TP', 'TAP')
+            df_list.append(df)
+        df_list = [df for df in df_list if not df.empty and not all(df.isna().all())]
+        if df_list:
+            df = pd.concat(df_list, ignore_index=True)
+        else:
+            # handle the case where all files are empty
+            df = pd.DataFrame(columns=usecols if usecols else [])
+        return df.to_dict('records')
+    
 
     # Load main tables from all subdirectories except cache
     all_flights = []
     all_flight_plans = []
     all_waypoints = []
     all_mel = []
+    all_acars = []
     
     for root, dirs, files in os.walk(DATA_PATH):
         if 'cache' in root:
@@ -133,24 +143,27 @@ def load_data():
         fp_pattern = os.path.join(root, 'fp_arinc633_fp_*.csv')
         wp_pattern = os.path.join(root, 'fp_arinc633_wp_*.csv')
         mel_pattern = os.path.join(root, 'fp_arinc633_mel_*.csv')
+        acars_pattern = os.path.join(root, 'acars_*.csv')
         
         all_flights.extend(read_multi_csv_to_dicts(root, flights_pattern, usecols=flights_cols))
         all_flight_plans.extend(read_multi_csv_to_dicts(root, fp_pattern, usecols=flight_plan_cols))
         all_waypoints.extend(read_multi_csv_to_dicts(root, wp_pattern, usecols=waypoints_cols))
-        all_mel.extend(read_multi_csv_to_dicts(root, mel_pattern, usecols=mel_cols))
+        all_mel.extend(read_multi_csv_to_dicts(root, mel_pattern, usecols=mel_cols))   
+        # Load ACARS data and replace TP with TAP in FLIGHT column
+        all_acars.extend(read_acars_files(root, acars_pattern, usecols=acars_cols))
         
     flights = all_flights
     flight_plan = all_flight_plans  
     waypoints = all_waypoints
     mel = all_mel
+    acars = all_acars
     
     logging.info(f"Loaded {len(all_flights)} flights (as dicts)")
     logging.info(f"Loaded {len(all_flight_plans)} flight plans (as dicts)")
     logging.info(f"Loaded {len(all_waypoints)} waypoints (as dicts)")
     logging.info(f"Loaded {len(all_mel)} mel (as dicts)")
     
-    # Load ACARS data and replace TP with TAP in FLIGHT column
-    acars = read_acars_files()
+ 
         
     # Load base tables
     equipments = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'equipments.csv'), usecols=equipments_cols)
