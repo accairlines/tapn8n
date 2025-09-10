@@ -270,7 +270,7 @@ def calculate_planned_actual_times(flights):
 
 def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations):
     """Prepare features and targets for training using list-of-dicts and manual merging."""
-    logging.info("Preparing training data (dict version)...")
+    logging.debug("Preparing training data (dict version)...")
 
     # Helper to parse datetimes safely
     def parse_dt(val):
@@ -667,6 +667,8 @@ def main():
     except Exception as e:
         logging.error(f"Training failed: {str(e)}")
         raise
+    finally:
+        logging.info("=== Training completed ===")
 
 if __name__ == "__main__":
     main() 
