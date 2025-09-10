@@ -22,10 +22,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Set base path from environment or default
-BASE_PATH = os.environ.get('AET_BASE_PATH', r'C:\Users\PedroSarmento\source\repos\hubtmsuite')
-DATA_PATH = os.environ.get('AET_DATA_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'data'))
-LOG_PATH = os.environ.get('AET_LOG_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'logs'))
-MODEL_PATH = os.environ.get('AET_MODEL_PATH', os.path.join(BASE_PATH, 'AETPrediction', 'model.pkl'))
+BASE_PATH = os.environ.get('AET_BASE_PATH')
+DATA_PATH = os.environ.get('AET_DATA_PATH')
+LOG_PATH = os.environ.get('AET_LOG_PATH')
+MODEL_PATH = os.path.join(os.environ.get('AET_MODEL_PATH'), 'model.pkl')
 
 # Ensure log directory exists
 os.makedirs(LOG_PATH, exist_ok=True)
@@ -671,13 +671,10 @@ def main():
         
         # Log completion
         logging.info("=== Training completed successfully ===")
-        return 1
+        return 0
     except Exception as e:
         logging.error(f"Training failed: {str(e)}")
-        raise
-    finally:
-        logging.info("=== Training completed ===")
-    return 0
+        return 1
 
 if __name__ == "__main__":
     success = main() 
