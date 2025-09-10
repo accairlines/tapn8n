@@ -16,16 +16,11 @@ services:
     container_name: web
     depends_on:
       - n8n
-      - llama
       - predictor
-      - qdrant
-      - pptgeneration
     networks:
       - web_network
       - n8n_network
-      - llama_network
       - predictor_network
-      - qdrant_network
 
   n8n:
     image: n8nio/n8n:latest
@@ -49,41 +44,6 @@ services:
       - n8n_data:/home/node/.n8n
     networks:
       - n8n_network
-
-  llama:
-    image: ollama/ollama:latest
-    pull_policy: always
-    container_name: llama
-    restart: always
-    volumes:
-      - llama_data:/root/.ollama
-    networks:
-      - llama_network
-    expose:
-      - "11434:11434"
-    entrypoint: ["/bin/sh", "-c"]
-    command: >
-      "ollama serve & 
-       server_pid=$!; 
-       sleep 5; 
-       ollama run qwen2.5:1.5b || true;
-       ollama pull nomic-embed-text || true;
-       ollama pull moondream || true;
-       wait $server_pid"
-         
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: qdrant
-    restart: always
-    volumes:
-      - ./storage/qdrant:/qdrant/storage
-    networks:
-      - qdrant_network
-    expose:
-      - "6333:6333"
-    environment:
-      - QDRANT__SERVICE__HTTP_PORT=6333
-      - QDRANT__SERVICE__GRPC_PORT=6334
          
   trainer:
     build: ./AETPrediction/trainer
@@ -116,48 +76,16 @@ services:
     container_name: predictor
     restart: always 
 
-  pptgeneration:
-    build:
-      context: ./PPTGeneration/services/pptgeneration
-      dockerfile: Dockerfile
-    container_name: pptgeneration
-    depends_on:
-      - llama
-      - qdrant
-    env_file:
-      - ./PPTGeneration/.env
-    volumes:
-      - /var/data/emails:/data/outlook:ro
-    expose:
-      - "8001:8001"
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8001/healthz"]
-      interval: 15s
-      timeout: 5s
-      retries: 20
-    networks:
-      - qdrant_network
-      - llama_network 
-      - pptgeneration_network
-
 networks:
   web_network:
     driver: bridge
   n8n_network:
     driver: bridge
-  llama_network:
-    driver: bridge
-  qdrant_network:
-    driver: bridge
   trainer_network:
     driver: bridge
   predictor_network:
     driver: bridge
-  pptgeneration_network:
-    driver: bridge
 
 volumes:
   n8n_data:
-    driver: local
-  llama_data:
     driver: local
