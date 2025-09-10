@@ -32,7 +32,7 @@ os.makedirs(LOG_PATH, exist_ok=True)
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(os.path.join(LOG_PATH, 'training.log')),
@@ -82,6 +82,7 @@ def load_data():
                     df[col] = None
                 df = df.reindex(columns=usecols)
             df_list.append(df)
+            logging.debug(f"End of reading file: {f}")
         df_list = [df for df in df_list if not df.empty and not all(df.isna().all())]
         if df_list:
             df = pd.concat(df_list, ignore_index=True)
@@ -95,8 +96,11 @@ def load_data():
         if not os.path.exists(file_path):
             logging.warning(f"File not found: {file_path}, returning empty list")
             return []
+        
+        logging.info(f"Reading file: {file_path}")
         try:
             df = pd.read_csv(file_path, usecols=usecols)
+            logging.debug(f"End of reading file: {file_path}")
             return df.to_dict('records')
         except Exception as e:
             logging.warning(f"Error reading {file_path}: {str(e)}, returning empty list")
@@ -119,6 +123,7 @@ def load_data():
                 df = df.reindex(columns=usecols)
                 df['CALLSIGN'] = df['FLIGHT'].str.replace('TP', 'TAP')
             df_list.append(df)
+            logging.debug(f"End of reading file: {f}")
         df_list = [df for df in df_list if not df.empty and not all(df.isna().all())]
         if df_list:
             df = pd.concat(df_list, ignore_index=True)
@@ -134,10 +139,12 @@ def load_data():
     all_waypoints = []
     all_mel = []
     all_acars = []
+    folders_paths = []
     
     for root, dirs, files in os.walk(DATA_PATH):
         if 'cache' in root:
             continue
+        folders_paths.append(root)
         logging.info(f"Processing files for path{str(root)}")
         flights_pattern = os.path.join(root, 'flight_*.csv') 
         fp_pattern = os.path.join(root, 'fp_arinc633_fp_*.csv')
@@ -172,7 +179,7 @@ def load_data():
 
     logging.info(f"Loaded {len(flights)} flights (as dicts)")
 
-    return flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations
+    return flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations, folders_paths
 
 
 def calculate_planned_actual_times(flights):
@@ -531,38 +538,39 @@ def save_features_targets_to_csv(features, targets):
     logging.info(f"Metadata saved to: {metadata_path}")
 
 
-def rename_csv_files_to_done():
+def rename_csv_files_to_done(folders_paths):
     """Rename all CSV files in the data directory to .done extension"""
     logging.info("Renaming all CSV files to .done extension...")
     
     # Get all CSV files in the data directory
-    csv_patterns = [
-        os.path.join(DATA_PATH, 'flight_*.csv'),
-        os.path.join(DATA_PATH, 'fp_arinc633_fp_*.csv'),
-        os.path.join(DATA_PATH, 'fp_arinc633_wp_*.csv'),
-        os.path.join(DATA_PATH, 'fp_arinc633_mel_*.csv'),
-        os.path.join(DATA_PATH, 'acars_*.csv')
-    ]
-    
-    renamed_count = 0
-    for pattern in csv_patterns:
-        files = glob.glob(pattern)
-        for file_path in files:
-            try:
-                # Create new filename with .done extension
-                directory = os.path.dirname(file_path)
-                filename = os.path.basename(file_path)
-                name_without_ext = os.path.splitext(filename)[0]
-                new_filename = f"{name_without_ext}.done"
-                new_file_path = os.path.join(directory, new_filename)
-                
-                # Rename the file
-                os.rename(file_path, new_file_path)
-                logging.info(f"Renamed: {filename} -> {new_filename}")
-                renamed_count += 1
-                
-            except Exception as e:
-                logging.error(f"Failed to rename {file_path}: {str(e)}")
+    for folder_path in folders_paths:
+        csv_patterns = [
+            os.path.join(folder_path, 'flight_*.csv'),
+            os.path.join(folder_path, 'fp_arinc633_fp_*.csv'),
+            os.path.join(folder_path, 'fp_arinc633_wp_*.csv'),
+            os.path.join(folder_path, 'fp_arinc633_mel_*.csv'),
+            os.path.join(folder_path, 'acars_*.csv')
+        ]
+        
+        renamed_count = 0
+        for pattern in csv_patterns:
+            files = glob.glob(pattern)
+            for file_path in files:
+                try:
+                    # Create new filename with .done extension
+                    directory = os.path.dirname(file_path)
+                    filename = os.path.basename(file_path)
+                    name_without_ext = os.path.splitext(filename)[0]
+                    new_filename = f"{name_without_ext}.done"
+                    new_file_path = os.path.join(directory, new_filename)
+                    
+                    # Rename the file
+                    os.rename(file_path, new_file_path)
+                    logging.info(f"Renamed: {filename} -> {new_filename}")
+                    renamed_count += 1
+                    
+                except Exception as e:
+                    logging.error(f"Failed to rename {file_path}: {str(e)}")
     
     logging.info(f"Successfully renamed {renamed_count} CSV files to .done extension")
 
@@ -604,7 +612,7 @@ def main():
         
         # Always process new data
         logging.info("=== Loading Data ===")
-        flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations = load_data()
+        flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations, folders_paths = load_data()
         logging.info("=== Loading Data Completed ===")
         
         # Calculate actual times
@@ -641,7 +649,7 @@ def main():
 
         # Rename CSV files to .done
         logging.info("=== Renaming CSV Files to .done ===")
-        rename_csv_files_to_done()
+        rename_csv_files_to_done(folders_paths)
         logging.info("=== Renaming CSV Files to .done Completed ===")
                 
         # Train models
