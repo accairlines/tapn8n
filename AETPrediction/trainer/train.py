@@ -281,7 +281,6 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
 
     # --- 1. Build station TIMEDIFF map ---
     station_timediff = {(str(s.get('STATION', '')).strip(), s.get('DAY_NUM')): s.get('TIMEDIFF_MINUTES', 0) for s in stations}
-    logging.debug(f"station_timediff... {str(station_timediff)}")
     # --- 2. Preprocess flight_plan: keep only latest TS for each (CALLSIGN, DEPARTURE_AIRP, STD) ---
     flight_plan_latest = {}
     for fp in flight_plan:
