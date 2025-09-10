@@ -13,7 +13,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY train.py preprocess.py ./
+COPY train.py preprocess.py codification.py ./
 
 # Create directories
 RUN mkdir -p /app/logs /app/data
