@@ -3,7 +3,7 @@ Feature extraction and preprocessing functions
 """
 
 import pandas as pd
-import trainer.codification as codification
+import codification as codification
 
 def preprocess_flight_data(flights):
     """Preprocess all flight features for model training: encode all columns as category codes, fill missing with -1."""
