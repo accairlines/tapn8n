@@ -3,7 +3,7 @@
 Daily model training script for AET prediction
 Reads from CSV files and trains XGBoost model
 """
-
+import sys
 import pandas as pd
 import numpy as np
 import pickle
@@ -663,12 +663,14 @@ def main():
         
         # Log completion
         logging.info("=== Training completed successfully ===")
-        
+        return 1
     except Exception as e:
         logging.error(f"Training failed: {str(e)}")
         raise
     finally:
         logging.info("=== Training completed ===")
+    return 0
 
 if __name__ == "__main__":
-    main() 
+    success = main() 
+    sys.exit(0 if success else 1)
