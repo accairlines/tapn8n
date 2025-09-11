@@ -87,11 +87,14 @@ class DatabaseExtractor:
             waypoints_df = self._extract_waypoints_table(start_date, end_date, flt_file_name=flt_file_name)
             mel_df = self._extract_mel_table(start_date, end_date, flt_file_name=flt_file_name)
             
+            stations_df = self._extract_stations_table(station=station, day_num=day_num)
+            
             callsign = flights_df['CALL_SIGN'].iloc[0].replace('TAP', 'TP') if not flights_df.empty and 'CALL_SIGN' in flights_df.columns else None
-            acars_df = self._extract_acars_table(start_date, end_date, callsign=callsign)
+            std = flights_df['STD'].iloc[0] if not flights_df.empty and 'STD' in flights_df.columns else None
+            std_utc = std - pd.to_timedelta(stations_df['timediff_minutes'].iloc[0], unit='m') if not stations_df.empty and 'timediff_minutes' in stations_df.columns else None
+            acars_df = self._extract_acars_table(start_date, end_date, callsign=callsign, std_utc=std_utc)
             equipments_df = self._extract_equipments_table()
             aircrafts_df = self._extract_aircrafts_table()
-            stations_df = self._extract_stations_table(station=station, day_num=day_num)
             
             # Join all data together
             combined_df = self._join_all_data(
@@ -203,22 +206,26 @@ class DatabaseExtractor:
             
         return pd.read_sql(query, self.engine, params=tuple(params))
     
-    def _extract_acars_table(self, start_date, end_date, callsign=None):
+    def _extract_acars_table(self, start_date, end_date, callsign=None, std_utc=None):
         """Extract data from ACARS table"""
         # Extend date range for ACARS data (2 days before and after)
         start_date_extended = (datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=2)).strftime('%Y-%m-%d')
         end_date_extended = (datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=2)).strftime('%Y-%m-%d')
         
+        std_utc_end = std_utc + pd.Timedelta(hours=12) if pd.notnull(std_utc) else None
         query = """
         SELECT ID,ADDRESS1,ADDRESS2,DATE,FLIGHT,FLIGHTSUFFIX,AIRCRAFT,ETA,DESTINATION,FOB,LOCATION1,LOCATION2,CODE,
                LATITUDE,LONGITUDE,ALTITUDE,GROUNDSPEED,TEMPERATURE,WINDDIRECTION,WINDSPEED,AIRSPEED,REPORTTIME,FUEL,TS
         FROM osusr_fam_tap_acars_plane
         WHERE REPORTTIME BETWEEN %s AND %s
-        """ + (" AND FLIGHT = %s" if callsign is not None else "")
+        """ + (" AND FLIGHT = %s" if callsign is not None else "") + (" AND REPORTTIME BETWEEN %s AND %s" if std_utc is not None else "")
         
         params = [start_date_extended, end_date_extended]
         if callsign is not None:
             params.append(callsign)
+        if std_utc is not None:
+            params.append(std_utc)
+            params.append(std_utc_end)
             
         return pd.read_sql(query, self.engine, params=tuple(params))
     
@@ -330,8 +337,8 @@ class DatabaseExtractor:
             acars_features = self._process_acars_data(acars_df)
             combined_df = combined_df.merge(
                 acars_features, 
-                left_on='CALL_SIGN', 
-                right_on='ACARS_CALLSIGN', 
+                left_on='ACARS_CALLSIGN', 
+                right_on='FLIGHT', 
                 how='left'
             )
         
@@ -356,7 +363,7 @@ class DatabaseExtractor:
     
     def _process_acars_data(self, acars_df):
         """Process ACARS data to create acars1_ to acars20_ features"""
-        acars_cols = ['WINDDIRECTION', 'WINDSPEED']
+        acars_cols = ['FLIGHT''WINDDIRECTION', 'WINDSPEED']
         
         # Create all columns at once to avoid fragmentation
         feature_data = {}
@@ -381,9 +388,9 @@ class DatabaseExtractor:
             'fp_ROUTE_OPTIMIZATION', 'fp_CRUISE_CI', 'fp_CLIMB_PROC', 'fp_CRUISE_PROC', 'fp_DESCENT_PROC',
             'fp_GREAT_CIRC', 'fp_ZERO_FUEL_WEIGHT', 'eq_BODYTYPE', 'eq_EQUIPMENTTYPE', 'eq_EQUIPMENTTYPE2',
             'actual_taxi_out', 'actual_airborne', 'actual_taxi_in', 'AET', 'OFFBLOCK', 'ATA', 'ONBLOCK',
-            'CALL_SIGN', 'FROM_TERMINAL', 'TO_TERMINAL', 'FROM_GATE', 'CAPTAIN', 'AIRCRAFT_ICAO_TYPE',
-            'AIRLINE_SPEC', 'PERFORMANCE_FACTOR', 'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CRUISE_CI', 'CLIMB_PROC',
-            'CRUISE_PROC', 'DESCENT_PRO', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT', 'BODYTYPE', 'EQUIPTYPE', 'EQUIPTYPE2'
+            'FROM_TERMINAL', 'TO_TERMINAL', 'FROM_GATE', 'CAPTAIN', 'AIRCRAFT_ICAO_TYPE','AIRLINE_SPEC', 
+            'PERFORMANCE_FACTOR', 'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CRUISE_CI', 'CLIMB_PROC','CRUISE_PROC', 
+            'DESCENT_PROC', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT', 'BODYTYPE', 'EQUIPTYPE', 'EQUIPTYPE2'
         ]
         
         # Ensure all columns are present

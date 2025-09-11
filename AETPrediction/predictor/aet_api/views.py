@@ -9,6 +9,7 @@ from .model_loader import ModelLoader
 from .db_extractor import get_flight_data_for_prediction
 from django.conf import settings
 import pandas as pd
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -46,39 +47,10 @@ def predict_flight(request, flight_id):
         return JsonResponse(response)
         
     except Exception as e:
-        logger.error(f"Prediction error for flight {flight_id}: {str(e)}")
+        error = e.args[0]
+        logging.error(''.join(traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)))
         return JsonResponse({
             'error': 'Prediction failed',
-            'message': str(e)
-        }, status=500)
-
-def predict_batch(request):
-    """Batch prediction for recent flights (called by cron)"""
-    try:
-        # Get flights from last 30 minutes
-        recent_flights = get_recent_flights(minutes=30)
-        
-        predictions = []
-        for flight_id in recent_flights:
-            try:
-                flight_data = get_flight_data(flight_id)
-                if flight_data:
-                    prediction = model_loader.predict(flight_data)
-                    result = format_prediction_response(flight_id, prediction, flight_data)
-                    predictions.append(result)
-            except Exception as e:
-                logger.error(f"Batch prediction error for last 30 minutes flights: {str(e)}")
-        
-        return JsonResponse({
-            'timestamp': timezone.now().isoformat(),
-            'flight_count': len(predictions),
-            'predictions': predictions
-        })
-        
-    except Exception as e:
-        logger.error(f"Batch prediction error: {str(e)}")
-        return JsonResponse({
-            'error': 'Batch prediction failed',
             'message': str(e)
         }, status=500)
 
@@ -165,7 +137,6 @@ def get_flight_data(flight_id):
             'ONBLOCK': flight_data.get('ONBLOCK', -1),
             
             # Additional fields for compatibility
-            'CALL_SIGN': flight_data.get('CALL_SIGN', -1),
             'FROM_TERMINAL': flight_data.get('FROM_TERMINAL', -1),
             'TO_TERMINAL': flight_data.get('TO_TERMINAL', -1),
             'FROM_GATE': flight_data.get('FROM_GATE', -1),
@@ -190,8 +161,7 @@ def get_flight_data(flight_id):
             'ARRIVAL_AIRP': flight_data.get('TO_IATA', -1),
             'TAXI_OUT_TIME': flight_data.get('TAXI_OUT_TIME', -1),
             'FLIGHT_TIME': flight_data.get('FLIGHT_TIME', -1),
-            'TAXI_IN_TIME': flight_data.get('TAXI_IN_TIME', -1),
-            'CALLSIGN': flight_data.get('CALL_SIGN', -1)
+            'TAXI_IN_TIME': flight_data.get('TAXI_IN_TIME', -1)
         }
         
         return model_data
