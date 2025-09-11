@@ -61,14 +61,13 @@ def preprocess_flight_data(flight):
             # Extract month and year, filling NaN with -1
             base_data[col + '_month'] = date.dt.month.fillna(-1).astype(int)
             base_data[col + '_year'] = date.dt.year.fillna(-1).astype(int)
-            base_data[col + '_hour'] = date.hour.fillna(-1).astype(int)
-            base_data[col + '_minute'] = date.minute.fillna(-1).astype(int)
-            base_data[col + '_second'] = date.second.fillna(-1).astype(int)
-            base_data[col + '_week'] = date.week.fillna(-1).astype(int)
-            base_data[col + '_day'] = date.day.fillna(-1).astype(int)
-            base_data[col + '_dayofyear'] = date.dayofyear.fillna(-1).astype(int)
-            base_data[col + '_dayofweek'] = date.dayofweek.fillna(-1).astype(int)
-            base_data[col + '_dayofweek'] = date.dayofweek.fillna(-1).astype(int)
+            base_data[col + '_hour'] = date.dt.hour.fillna(-1).astype(int)
+            base_data[col + '_minute'] = date.dt.minute.fillna(-1).astype(int)
+            base_data[col + '_second'] = date.dt.second.fillna(-1).astype(int)
+            base_data[col + '_weekday'] = date.dt.weekday.fillna(-1).astype(int)
+            base_data[col + '_day'] = date.dt.day.fillna(-1).astype(int)
+            base_data[col + '_dayofyear'] = date.dt.dayofyear.fillna(-1).astype(int)
+            base_data[col + '_dayofweek'] = date.dt.dayofweek.fillna(-1).astype(int)
     # Determine the number of flights for index creation
     flight_data_df = pd.DataFrame(base_data, index=range(len(features_data)))
     

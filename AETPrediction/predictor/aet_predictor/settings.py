@@ -18,7 +18,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-secret-key-here')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['tapn8n.accairlines.com', 'localhost', '127.0.0.1']  # Configure properly for production
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", default='tapn8n.accairlines.com').split(",")
 
 # Application definition
 INSTALLED_APPS = [
