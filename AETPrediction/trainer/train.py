@@ -17,6 +17,7 @@ from preprocess import preprocess_flight_data
 import glob
 import os
 from dotenv import load_dotenv
+import traceback
 
 # Load environment variables from .env file
 load_dotenv()
@@ -707,7 +708,8 @@ def main():
         logging.info("=== Training completed successfully ===")
         return 0
     except Exception as e:
-        logging.error(f"Training failed: {str(e)}")
+        error = e.args[0]
+        logging.error(''.join(traceback.format_exception(type(e), e, e.__traceback__)))
         return 1
 
 if __name__ == "__main__":

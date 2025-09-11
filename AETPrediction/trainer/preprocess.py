@@ -38,10 +38,13 @@ def preprocess_flight_data(flights):
 
     # Ensure all columns are present
     category_cols = [
-        'OPERATOR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'fp_STD', 'fp_CRUISE_PROC', 'eq_EQUIPTYPE', 'eq_EQUIPTYPE2',
-        'actual_taxi_out', 'actual_airborne', 'actual_taxi_in', 'actual_total_time', 'planned_taxi_out', 'planned_airborne', 
-        'planned_taxi_in', 'planned_total_time', 'AET', 'EET'
-    ] in category_cols_all
+        'OPERATOR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'fp_STD', 'fp_CRUISE_PROC', 'eq_EQUIPTYPE', 'eq_EQUIPTYPE2'
+    ]
+    
+    # Verify all category columns exist in category_cols_all
+    invalid_cols = [col for col in category_cols if col not in category_cols_all]
+    if invalid_cols:
+        raise ValueError(f"The following category columns are not in category_cols_all: {invalid_cols}")
     base_data = {}
     for col in category_cols:
         if col not in features_data.columns:
@@ -51,7 +54,12 @@ def preprocess_flight_data(flights):
     
     numeric_cols = [
         'FLT_NR', 'fp_CRUISE_CI'
-    ] in numeric_cols_all
+    ]
+    
+    # Verify all numeric columns exist in numeric_cols_all
+    invalid_cols = [col for col in numeric_cols if col not in numeric_cols_all]
+    if invalid_cols:
+        raise ValueError(f"The following numeric columns are not in numeric_cols_all: {invalid_cols}")
     for col in numeric_cols:
         if col not in features_data.columns:
             base_data[col] = -1
@@ -62,7 +70,12 @@ def preprocess_flight_data(flights):
     
     date_cols = [
         'STD'
-    ] in date_cols_all
+    ]
+    
+    # Verify all date columns exist in date_cols_all
+    invalid_cols = [col for col in date_cols if col not in date_cols_all]
+    if invalid_cols:
+        raise ValueError(f"The following date columns are not in date_cols_all: {invalid_cols}")
     for col in date_cols:
         if col not in features_data.columns:
             base_data[col] = -1
@@ -87,7 +100,12 @@ def preprocess_flight_data(flights):
     flight_data_df = pd.DataFrame(base_data, index=range(len(flights)))
     
     # Waypoint columns: wp1_... to wp50_... for each in waypoints_cols
-    waypoints_cols = [] in waypoints_cols_all
+    waypoints_cols = []
+    
+    # Verify all waypoints columns exist in waypoints_cols_all
+    invalid_cols = [col for col in waypoints_cols if col not in waypoints_cols_all]
+    if invalid_cols:
+        raise ValueError(f"The following waypoints columns are not in waypoints_cols_all: {invalid_cols}")
     waypoint_data = {}
     for base in waypoints_cols:
         for i in range(1, 51):
@@ -102,7 +120,12 @@ def preprocess_flight_data(flights):
     flight_data_df = pd.concat([flight_data_df, waypoint_df], axis=1)
     
     # Acars columns: ac1_... to ac20_... for each in acars_cols
-    acars_cols = [] in acars_cols_all
+    acars_cols = []
+    
+    # Verify all acars columns exist in acars_cols_all
+    invalid_cols = [col for col in acars_cols if col not in acars_cols_all]
+    if invalid_cols:
+        raise ValueError(f"The following acars columns are not in acars_cols_all: {invalid_cols}")
     acars_data = {}
     for base in acars_cols:
         for i in range(1, 21):
