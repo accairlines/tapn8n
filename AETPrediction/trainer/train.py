@@ -461,16 +461,33 @@ def extract_targetsfeatures_from_flights(flights):
     """Extract features DataFrame from enriched flights list, flattening selected flight, selected flight_plan fields, selected equipment fields, up to 50 relevant waypoint features, and up to 20 acars features."""
     # Now build features DataFrame
     data = []
-    flight_fields = [
+    flight_fields_original = [
         'OPERATOR', 'FLT_NR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA',
         'STD', 'ETD', 'ATD', 'STA', 'ETA', 'FROM_STAND', 'TO_STAND',
         'AC_READY', 'TSAT', 'TOBT', 'CTOT', 'CALL_ SIGN', 'SERV_TYP_COD', 'MVT'
     ]
-    flight_plan_fields = [
+    flight_plan_fields_original = [
         'CAPTAIN', 'AIRCRAFT_ICAO_TYPE', 'AIRLINE_SPEC', 'PERFORMANCE_FACTOR',
         'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CRUISE_CI', 'CLIMB_PROC',
         'CRUISE_PROC', 'DESCENT_PRO', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT'
     ]
+    equipment_fields_original = ['BODYTYPE', 'EQUIPMENTTYPE', 'EQUIPMENTTYPE2']
+    waypoints_fields_original = ['SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE']
+    acars_fields_original = ['WINDDIRECTION', 'WINDSPEED']
+    
+    flight_fields = [
+        'FLT_NR', 'FROM_IATA', 'TO_IATA', 'STD'
+    ] in flight_fields_original
+    flight_plan_fields = [
+        'CRUISE_CI'
+    ] in flight_plan_fields_original
+    equipment_fields = [
+        'EQUIPMENTTYPE'
+    ] in equipment_fields_original
+    waypoints_fields = [] in waypoints_fields_original
+    acars_fields = [] in acars_fields_original
+    wp_fields = [] in waypoints_fields_original
+    acars_fields  = [] in acars_fields_original
     """Extract targets DataFrame from enriched flights list."""
     for flight in flights:
         if not flight.get('flight_plan'):
@@ -489,21 +506,19 @@ def extract_targetsfeatures_from_flights(flights):
         # Add selected equipment fields, prefixed with 'eq_'
         eq = flight.get('equipment')
         if eq:
-            for ek in ['BODYTYPE', 'EQUIPMENTTYPE', 'EQUIPMENTTYPE2']:
+            for ek in equipment_fields:
                 row[f'eq_{ek}'] = eq.get(ek)
         # Add up to 50 waypoints with ALTITUDE > 299, extracting 3 fields
-        wp_fields = ['SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE']
         waypoints = [wp for wp in (flight.get('waypoints') or []) if wp.get('ALTITUDE') is not None and float(wp.get('ALTITUDE', 0)) > 299]
         for i in range(50):
             if i < len(waypoints):
                 wp = waypoints[i]
-                for f in wp_fields:
+                for f in waypoints_fields:
                     row[f'wp{i+1}_{f}'] = wp.get(f)
             else:
                 for f in wp_fields:
                     row[f'wp{i+1}_{f}'] = None
         # Add up to 20 acars, extracting WINDDIRECTION and WINDSPEED
-        acars_fields = ['WINDDIRECTION', 'WINDSPEED']
         acars_list = flight.get('acars') or []
         for i in range(20):
             if i < len(acars_list):
@@ -516,7 +531,13 @@ def extract_targetsfeatures_from_flights(flights):
         row['actual_taxi_out'] = flight.get('actual_taxi_out')
         row['actual_airborne'] = flight.get('actual_airborne')
         row['actual_taxi_in'] = flight.get('actual_taxi_in')
+        row['actual_total_time'] = flight.get('actual_total_time')
+        row['planned_taxi_out'] = flight.get('planned_taxi_out')
+        row['planned_airborne'] = flight.get('planned_airborne')
+        row['planned_taxi_in'] = flight.get('planned_taxi_in')
+        row['planned_total_time'] = flight.get('planned_total_time')
         row['AET'] = flight.get('AET')
+        row['EET'] = flight.get('EET')
         row['delta'] = flight.get('delta')
         data.append(row)
     feactures_processed, targets_processed = preprocess_flight_data(data)
