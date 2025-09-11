@@ -109,7 +109,6 @@ def get_flight_data(flight_id):
             'fp_CLIMB_PROC': flight_data.get('fp_CLIMB_PROC', -1),
             'fp_CRUISE_PROC': flight_data.get('fp_CRUISE_PROC', -1),
             'fp_DESCENT_PROC': flight_data.get('fp_DESCENT_PROC', -1),
-            'fp_DESCENT_PROC': flight_data.get('fp_DESCENT_PROC', -1),
             'fp_GREAT_CIRC': flight_data.get('fp_GREAT_CIRC', -1),
             'fp_ZERO_FUEL_WEIGHT': flight_data.get('fp_ZERO_FUEL_WEIGHT', -1),
             
