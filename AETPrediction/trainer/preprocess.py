@@ -46,17 +46,22 @@ def preprocess_flight_data(flights):
             base_data[col] = -1
         else:
             # For date columns, convert to numeric or keep as is
-            date = features_data[col]
-            base_data[col + '_month'] = date.month
-            base_data[col + '_year'] = date.year
-            base_data[col + '_hour'] = date.hour
-            base_data[col + '_minute'] = date.minute
-            base_data[col + '_second'] = date.second
-            base_data[col + '_week'] = date.week
-            base_data[col + '_day'] = date.day
-            base_data[col + '_dayofyear'] = date.dayofyear
-            base_data[col + '_dayofweek'] = date.dayofweek
-            base_data[col + '_dayofweek'] = date.dayofweek
+            date_series = features_data[col]
+            # Remove the index name to avoid duplicate column issues
+            if hasattr(date_series, 'name'):
+                date_series.name = None
+            # Convert to datetime
+            date = pd.to_datetime(features_data[col], errors='coerce')
+            # Extract month and year, filling NaN with -1
+            base_data[col + '_month'] = date.dt.month.fillna(-1).astype(int)
+            base_data[col + '_year'] = date.dt.year.fillna(-1).astype(int)
+            base_data[col + '_hour'] = date.dt.hour.fillna(-1).astype(int)
+            base_data[col + '_minute'] = date.dt.minute.fillna(-1).astype(int)
+            base_data[col + '_second'] = date.dt.second.fillna(-1).astype(int)
+            base_data[col + '_weekday'] = date.dt.weekday.fillna(-1).astype(int)
+            base_data[col + '_day'] = date.dt.day.fillna(-1).astype(int)
+            base_data[col + '_dayofyear'] = date.dt.dayofyear.fillna(-1).astype(int)
+            base_data[col + '_dayofweek'] = date.dt.dayofweek.fillna(-1).astype(int)
     flight_data_df = pd.DataFrame(base_data, index=range(len(flights)))
     
     # Waypoint columns: wp1_... to wp50_... for each in waypoints_cols

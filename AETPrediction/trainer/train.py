@@ -381,10 +381,8 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
                         a['MINUTES_TO_ETA'] = minutes_to_eta
                     else:
                         a['MINUTES_TO_STA'] = -1
-                        a['MINUTES_TO_ETA'] = -1
                 else:
                     a['MINUTES_TO_STA'] = -1
-                    a['MINUTES_TO_ETA'] = -1
                 
                 acars_matches.append(a)
         flight['acars'] = acars_matches
@@ -519,7 +517,6 @@ def extract_targetsfeatures_from_flights(flights):
         row['actual_airborne'] = flight.get('actual_airborne')
         row['actual_taxi_in'] = flight.get('actual_taxi_in')
         row['AET'] = flight.get('AET')
-        row['delta'] = flight.get('delta')
         row['delta'] = flight.get('delta')
         data.append(row)
     feactures_processed, targets_processed = preprocess_flight_data(data)
