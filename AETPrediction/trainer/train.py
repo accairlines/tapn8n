@@ -41,32 +41,41 @@ logging.basicConfig(
     ]
 )
 
+flights_cols_all = [
+    'OPERATOR', 'FLT_NR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'DIV_IATA', 'STD', 'ETD', 'ATD', 'STA',
+    'ETA', 'ATA', 'ONBLOCK', 'FROM_TERMINAL', 'FROM_GATE', 'FROM_STAND', 'TO_TERMINAL', 'TO_STAND', 'AC_READY',
+    'TSAT', 'PAX_BOARDED', 'CARGO', 'CAPACITY', 'CALL_SIGN', 'OFFBLOCK', 'TOBT', 'CTOT', 'SERV_TYP_COD', 'MVT',
+    'CHG_REASON', 
+]
+flight_plan_cols_all = [
+    'FLP_FILE_NAME', 'STD', 'CALLSIGN', 'CAPTAIN', 'DEPARTURE_AIRP', 'ARRIVAL_AIRP', 'AIRCRAFT_ICAO_TYPE',
+    'AIRLINE_SPEC','PERFORMANCE_FACTOR', 'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CLIMB_PROC', 'CLIMB_CI', 'CRUISE_PROC',
+    'CRUISE_CI', 'DESCENT_PROC', 'DESCENT_CI', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT', 'TAXI_OUT_TIME', 'TAXI_IN_TIME',
+    'FLIGHT_TIME'
+]
+waypoints_cols_all = [
+    'ALTITUDE', 'SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE',
+    'FLP_FILE_NAME', 'CUMULATIVE_FLIGHT_TIME'
+]
+mel_cols_all = ['FLP_FILE_NAME']
+acars_cols_all = ['FLIGHT', 'REPORTTIME', 'WINDDIRECTION', 'WINDSPEED']
+equipments_cols_all = ['ID', 'BODYTYPE', 'EQUIPTYPE', 'EQUIPTYPE2']
+aircrafts_cols_all = ['ACREGISTRATION', 'EQUIPTYPEID']
+stations_cols_all = ['STATION', 'TIMEDIFF_MINUTES', 'DAY_NUM']
+
 def load_data():
     """Load CSV data files as lists of dicts (supporting multiple files per type)"""
     logging.info("Loading CSV data files as lists of dicts...")
 
     # Define required columns for each file type
-    flights_cols = [
-        'OPERATOR', 'FLT_NR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'DIV_IATA', 'STD', 'ETD', 'ATD', 'STA',
-        'ETA', 'ATA', 'ONBLOCK', 'FROM_TERMINAL', 'FROM_GATE', 'FROM_STAND', 'TO_TERMINAL', 'TO_STAND', 'AC_READY',
-        'TSAT', 'PAX_BOARDED', 'CARGO', 'CAPACITY', 'CALL_SIGN', 'OFFBLOCK', 'TOBT', 'CTOT', 'SERV_TYP_COD', 'MVT',
-        'CHG_REASON', 
-    ]
-    flight_plan_cols = [
-        'FLP_FILE_NAME', 'STD', 'CALLSIGN', 'CAPTAIN', 'DEPARTURE_AIRP', 'ARRIVAL_AIRP', 'AIRCRAFT_ICAO_TYPE',
-        'AIRLINE_SPEC','PERFORMANCE_FACTOR', 'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CLIMB_PROC', 'CLIMB_CI', 'CRUISE_PROC',
-        'CRUISE_CI', 'DESCENT_PROC', 'DESCENT_CI', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT', 'TAXI_OUT_TIME', 'TAXI_IN_TIME',
-        'FLIGHT_TIME'
-    ]
-    waypoints_cols = [
-        'ALTITUDE', 'SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE',
-        'FLP_FILE_NAME', 'CUMULATIVE_FLIGHT_TIME'
-    ]
-    mel_cols = ['FLP_FILE_NAME']
-    acars_cols = ['FLIGHT', 'REPORTTIME', 'WINDDIRECTION', 'WINDSPEED']
-    equipments_cols = ['ID', 'BODYTYPE', 'EQUIPTYPE', 'EQUIPTYPE2']
-    aircrafts_cols = ['ACREGISTRATION', 'EQUIPTYPEID']
-    stations_cols = ['STATION', 'TIMEDIFF_MINUTES', 'DAY_NUM']
+    flights_cols = flights_cols_all
+    flight_plan_cols = flight_plan_cols_all
+    waypoints_cols = waypoints_cols_all
+    mel_cols = mel_cols_all
+    acars_cols = acars_cols_all
+    equipments_cols = equipments_cols_all
+    aircrafts_cols = aircrafts_cols_all
+    stations_cols = stations_cols_all
 
     def read_multi_csv_to_dicts(root, pattern, usecols=None):
         files = glob.glob(os.path.join(root, pattern))
@@ -133,7 +142,6 @@ def load_data():
             df = pd.DataFrame(columns=usecols if usecols else [])
         return df.to_dict('records')
     
-
     # Load main tables from all subdirectories except cache
     all_flights = []
     all_flight_plans = []
@@ -171,8 +179,6 @@ def load_data():
     logging.info(f"Loaded {len(all_waypoints)} waypoints (as dicts)")
     logging.info(f"Loaded {len(all_mel)} mel (as dicts)")
     
- 
-        
     # Load base tables
     equipments = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'equipments.csv'), usecols=equipments_cols)
     aircrafts = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'aircrafts.csv'), usecols=aircrafts_cols)
@@ -462,72 +468,54 @@ def extract_targetsfeatures_from_flights(flights):
     """Extract features DataFrame from enriched flights list, flattening selected flight, selected flight_plan fields, selected equipment fields, up to 50 relevant waypoint features, and up to 20 acars features."""
     # Now build features DataFrame
     data = []
-    flight_fields_original = [
-        'OPERATOR', 'FLT_NR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA',
-        'STD', 'ETD', 'ATD', 'STA', 'ETA', 'FROM_STAND', 'TO_STAND',
-        'AC_READY', 'TSAT', 'TOBT', 'CTOT', 'CALL_ SIGN', 'SERV_TYP_COD', 'MVT'
-    ]
-    flight_plan_fields_original = [
-        'CAPTAIN', 'AIRCRAFT_ICAO_TYPE', 'AIRLINE_SPEC', 'PERFORMANCE_FACTOR',
-        'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CRUISE_CI', 'CLIMB_PROC',
-        'CRUISE_PROC', 'DESCENT_PRO', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT'
-    ]
-    equipment_fields_original = ['BODYTYPE', 'EQUIPMENTTYPE', 'EQUIPMENTTYPE2']
-    waypoints_fields_original = ['SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE']
-    acars_fields_original = ['WINDDIRECTION', 'WINDSPEED']
     
-    flight_fields = [
-        'FLT_NR', 'FROM_IATA', 'TO_IATA', 'STD'
-    ] in flight_fields_original
-    flight_plan_fields = [
-        'CRUISE_CI'
-    ] in flight_plan_fields_original
-    equipment_fields = [
-        'EQUIPMENTTYPE'
-    ] in equipment_fields_original
-    waypoints_fields = [] in waypoints_fields_original
-    acars_fields = [] in acars_fields_original
-    wp_fields = [] in waypoints_fields_original
-    acars_fields  = [] in acars_fields_original
+    # Define required columns for each file type
+    flights_cols = flights_cols_all
+    flight_plan_cols = flight_plan_cols_all
+    waypoints_cols = waypoints_cols_all
+    mel_cols = mel_cols_all
+    acars_cols = acars_cols_all
+    equipments_cols = equipments_cols_all
+    
     """Extract targets DataFrame from enriched flights list."""
     for flight in flights:
         if not flight.get('flight_plan'):
             continue  # Only include if flight_plan is present
         row = {}
         # Add only selected flight fields
-        for k in flight_fields:
+        for k in flights_cols:
             v = flight.get(k)
             if not isinstance(v, (dict, list)):
                 row[k] = v
         # Add only selected flight_plan fields, prefixed with 'fp_'
-        for k in flight_plan_fields:
+        for k in flight_plan_cols:
             v = flight['flight_plan'].get(k)
             if not isinstance(v, (dict, list)):
                 row[f'fp_{k}'] = v
         # Add selected equipment fields, prefixed with 'eq_'
         eq = flight.get('equipment')
         if eq:
-            for ek in equipment_fields:
+            for ek in equipments_cols:
                 row[f'eq_{ek}'] = eq.get(ek)
         # Add up to 50 waypoints with ALTITUDE > 299, extracting 3 fields
         waypoints = [wp for wp in (flight.get('waypoints') or []) if wp.get('ALTITUDE') is not None and float(wp.get('ALTITUDE', 0)) > 299]
         for i in range(50):
             if i < len(waypoints):
                 wp = waypoints[i]
-                for f in waypoints_fields:
+                for f in waypoints_cols:
                     row[f'wp{i+1}_{f}'] = wp.get(f)
             else:
-                for f in wp_fields:
+                for f in waypoints_cols:
                     row[f'wp{i+1}_{f}'] = None
         # Add up to 20 acars, extracting WINDDIRECTION and WINDSPEED
         acars_list = flight.get('acars') or []
         for i in range(20):
             if i < len(acars_list):
                 ac = acars_list[i]
-                for f in acars_fields:
+                for f in acars_cols:
                     row[f'acars{i+1}_{f}'] = ac.get(f)
             else:
-                for f in acars_fields:
+                for f in acars_cols:
                     row[f'acars{i+1}_{f}'] = None
         row['actual_taxi_out'] = flight.get('actual_taxi_out')
         row['actual_airborne'] = flight.get('actual_airborne')

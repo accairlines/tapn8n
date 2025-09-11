@@ -45,6 +45,7 @@ def preprocess_flight_data(flights):
     invalid_cols = [col for col in category_cols if col not in category_cols_all]
     if invalid_cols:
         raise ValueError(f"The following category columns are not in category_cols_all: {invalid_cols}")
+    
     base_data = {}
     for col in category_cols:
         if col not in features_data.columns:
