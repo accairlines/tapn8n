@@ -56,7 +56,17 @@ def preprocess_flight_data(flight):
             # Remove the index name to avoid duplicate column issues
             if hasattr(date_series, 'name'):
                 date_series.name = None
-            base_data[col + '_code'] = date_series
+            date = features_data[col]
+            base_data[col + '_month'] = date.month
+            base_data[col + '_year'] = date.year
+            base_data[col + '_hour'] = date.hour
+            base_data[col + '_minute'] = date.minute
+            base_data[col + '_second'] = date.second
+            base_data[col + '_week'] = date.week
+            base_data[col + '_day'] = date.day
+            base_data[col + '_dayofyear'] = date.dayofyear
+            base_data[col + '_dayofweek'] = date.dayofweek
+            base_data[col + '_dayofweek'] = date.dayofweek
     # Determine the number of flights for index creation
     flight_data_df = pd.DataFrame(base_data, index=range(len(features_data)))
     

@@ -198,9 +198,7 @@ def calculate_planned_actual_times(flights):
         offblock = parse_dt(flight.get('OFFBLOCK'))
         mvt = parse_dt(flight.get('MVT'))
         ata = parse_dt(flight.get('ATA'))
-        onblock = parse_dt(flight.get('ONBLOCK'))
-        eta = parse_dt(flight.get('ETA'))
-        
+        onblock = parse_dt(flight.get('ONBLOCK'))        
         
         # Planned Taxi out
         taxi_out_str = flight.get('TAXI_OUT_TIME', '00:00:00')
@@ -214,8 +212,7 @@ def calculate_planned_actual_times(flights):
         taxi_in_str = flight.get('TAXI_IN_TIME', '00:00:00')
         h, m, s = map(int, taxi_in_str.split(':'))
         planned_taxi_in = h * 3600 + m * 60 + s if taxi_in_str else 0
-        
-        
+                
         # Planned Taxi out
         taxi_out_str = flight.get('TAXI_OUT_TIME', '00:00:00')
         h, m, s = map(int, taxi_out_str.split(':'))
@@ -256,13 +253,8 @@ def calculate_planned_actual_times(flights):
         flight['planned_airborne'] = planned_airborne
         flight['planned_taxi_in'] = planned_taxi_in
         flight['planned_total_time'] = planned_taxi_out + planned_airborne + planned_taxi_in
-        flight['planned_taxi_out'] = planned_taxi_out
-        flight['planned_airborne'] = planned_airborne
-        flight['planned_taxi_in'] = planned_taxi_in
-        flight['planned_total_time'] = planned_taxi_out + planned_airborne + planned_taxi_in
         flight['AET'] = aet
         flight['EET'] = eet
-        flight['delta'] = actual_delta
         flight['delta'] = actual_delta
 
     return flights
@@ -367,6 +359,33 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
                 pd.notnull(std_utc) and
                 std_utc <= report_time <= std_utc_end
             ):
+                # Get TIMEDIFF for this flight's FROM_IATA
+                from_iata = str(flight.get('FROM_IATA', '')).strip()
+                # Convert STD (local) to UTC
+                std_local = parse_dt(flight.get('STD'))
+                # Get flight's TIMEDIFF_MINUTES and STA
+                timediff = station_timediff.get((from_iata, std_local.dayofyear if pd.notnull(std_local) else None), 0)
+                sta = pd.to_datetime(flight.get('STA'), errors='coerce')
+                eta = pd.to_datetime(flight.get('ETA'), errors='coerce')
+                
+                # Calculate STA_UTC by subtracting TIMEDIFF_MINUTES from STA
+                if pd.notnull(sta):
+                    sta_utc = sta - pd.Timedelta(minutes=timediff)
+                    
+                    # Calculate minutes between REPORTTIME and STA_UTC
+                    report_time = pd.to_datetime(a.get('REPORTTIME'), errors='coerce')
+                    if pd.notnull(report_time) and pd.notnull(sta_utc):
+                        minutes_to_sta = (sta_utc - report_time).total_seconds() / 60
+                        minutes_to_eta = (sta_utc - report_time).total_seconds() / 60
+                        a['MINUTES_TO_STA'] = minutes_to_sta
+                        a['MINUTES_TO_ETA'] = minutes_to_eta
+                    else:
+                        a['MINUTES_TO_STA'] = -1
+                        a['MINUTES_TO_ETA'] = -1
+                else:
+                    a['MINUTES_TO_STA'] = -1
+                    a['MINUTES_TO_ETA'] = -1
+                
                 acars_matches.append(a)
         flight['acars'] = acars_matches
     logging.debug(f"acars flights... {len(flights)}")
@@ -377,9 +396,6 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
 def train_models(features, targets):
     """Train separate XGBoost models for each time component"""
     logging.info("Training models...")
-
-    # Ensure only numeric columns are used
-    features_numeric = features.select_dtypes(include=[np.number])
 
     # Ensure only numeric columns are used
     features_numeric = features.select_dtypes(include=[np.number])
