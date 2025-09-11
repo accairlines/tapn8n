@@ -48,7 +48,7 @@ def predict_flight(request, flight_id):
         
     except Exception as e:
         error = e.args[0]
-        logging.error(''.join(traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)))
+        logging.error(''.join(traceback.format_exception(type(e), e, e.__traceback__)))
         return JsonResponse({
             'error': 'Prediction failed',
             'message': str(e)
