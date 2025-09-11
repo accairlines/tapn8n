@@ -7,9 +7,8 @@ from .codification import categorialcoding
 
 def preprocess_flight_data(flight):
     """Preprocess all flight features for model training: encode all columns as category codes, fill missing with -1."""
-    # Create DataFrame from flights
-    features_data = pd.DataFrame(flight)
-    targets_data = pd.DataFrame()
+    # Create DataFrame from single flight dictionary with proper index
+    features_data = pd.DataFrame([flight])
 
     # Ensure all columns are present
     category_cols = [
@@ -22,7 +21,7 @@ def preprocess_flight_data(flight):
     base_data = {}
     for col in category_cols:
         if col not in features_data.columns:
-            base_data[col + '_code'] = -1
+            base_data[col + '_code'] = [-1]
         else:
             base_data[col + '_code'] = categorialcoding(features_data[col])
     
@@ -32,18 +31,26 @@ def preprocess_flight_data(flight):
     ]
     for col in numeric_cols:
         if col not in features_data.columns:
-            base_data[col] = -1
+            base_data[col] = [-1]
         else:
             # Convert to numeric, handling NaN values
             numeric_series = pd.to_numeric(features_data[col], errors='coerce')
-            base_data[col] = numeric_series.fillna(-1).astype(int)
+            base_data[col] = numeric_series.fillna(-1).astype(int).tolist()
     
     date_cols = [
         'STD', 'ETD', 'ATD', 'STA', 'ETA', 'ATA', 'ONBLOCK', 'AC_READY', 'TSAT', 'OFFBLOCK', 'TOBT', 'CTOT', 'MVT'
     ]
     for col in date_cols:
         if col not in features_data.columns:
-            base_data[col] = -1
+            base_data[col + '_month'] = [-1]
+            base_data[col + '_year'] = [-1]
+            base_data[col + '_hour'] = [-1]
+            base_data[col + '_minute'] = [-1]
+            base_data[col + '_second'] = [-1]
+            base_data[col + '_weekday'] = [-1]
+            base_data[col + '_day'] = [-1]
+            base_data[col + '_dayofyear'] = [-1]
+            base_data[col + '_dayofweek'] = [-1]
         else:
             # For date columns, convert to numeric or keep as is
             date_series = features_data[col]
@@ -53,16 +60,16 @@ def preprocess_flight_data(flight):
             # Convert to datetime
             date = pd.to_datetime(features_data[col], errors='coerce')
             # Extract month and year, filling NaN with -1
-            base_data[col + '_month'] = date.dt.month.fillna(-1).astype(int)
-            base_data[col + '_year'] = date.dt.year.fillna(-1).astype(int)
-            base_data[col + '_hour'] = date.dt.hour.fillna(-1).astype(int)
-            base_data[col + '_minute'] = date.dt.minute.fillna(-1).astype(int)
-            base_data[col + '_second'] = date.dt.second.fillna(-1).astype(int)
-            base_data[col + '_weekday'] = date.dt.weekday.fillna(-1).astype(int)
-            base_data[col + '_day'] = date.dt.day.fillna(-1).astype(int)
-            base_data[col + '_dayofyear'] = date.dt.dayofyear.fillna(-1).astype(int)
-            base_data[col + '_dayofweek'] = date.dt.dayofweek.fillna(-1).astype(int)
-    flight_data_df = pd.DataFrame(base_data, index=range(len(flights)))
+            base_data[col + '_month'] = date.dt.month.fillna(-1).astype(int).tolist()
+            base_data[col + '_year'] = date.dt.year.fillna(-1).astype(int).tolist()
+            base_data[col + '_hour'] = date.dt.hour.fillna(-1).astype(int).tolist()
+            base_data[col + '_minute'] = date.dt.minute.fillna(-1).astype(int).tolist()
+            base_data[col + '_second'] = date.dt.second.fillna(-1).astype(int).tolist()
+            base_data[col + '_weekday'] = date.dt.weekday.fillna(-1).astype(int).tolist()
+            base_data[col + '_day'] = date.dt.day.fillna(-1).astype(int).tolist()
+            base_data[col + '_dayofyear'] = date.dt.dayofyear.fillna(-1).astype(int).tolist()
+            base_data[col + '_dayofweek'] = date.dt.dayofweek.fillna(-1).astype(int).tolist()
+    flight_data_df = pd.DataFrame(base_data, index=[0])
     
     # Waypoint columns: wp1_... to wp50_... for each in waypoints_cols
     waypoints_cols = ['SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE']
@@ -71,12 +78,12 @@ def preprocess_flight_data(flight):
         for i in range(1, 51):
             col = f'wp{i}_{base}'
             if col not in features_data.columns:
-                waypoint_data[col] = -1
+                waypoint_data[col] = [-1]
             else:
                 # Convert to numeric, handling NaN values
                 numeric_series = pd.to_numeric(features_data[col], errors='coerce')
-                waypoint_data[col] = numeric_series.fillna(-1).astype(int)
-    waypoint_df = pd.DataFrame(waypoint_data, index=range(len(flights)))
+                waypoint_data[col] = numeric_series.fillna(-1).astype(int).tolist()
+    waypoint_df = pd.DataFrame(waypoint_data, index=[0])
     flight_data_df = pd.concat([flight_data_df, waypoint_df], axis=1)
     
     # Acars columns: ac1_... to ac20_... for each in acars_cols
@@ -86,13 +93,13 @@ def preprocess_flight_data(flight):
         for i in range(1, 21):
             col = f'ac{i}_{base}'
             if col not in features_data.columns:
-                acars_data[col] = -1
+                acars_data[col] = [-1]
             else:
                 # Convert to numeric, handling NaN values
                 numeric_series = pd.to_numeric(features_data[col], errors='coerce')
-                acars_data[col] = numeric_series.fillna(-1).astype(int)
+                acars_data[col] = numeric_series.fillna(-1).astype(int).tolist()
                 
-    acars_df = pd.DataFrame(acars_data, index=range(len(flights)))
+    acars_df = pd.DataFrame(acars_data, index=[0])
     features_data = pd.concat([flight_data_df, acars_df], axis=1)
         
     # Fill missing values with -1
