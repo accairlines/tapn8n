@@ -32,21 +32,21 @@ def preprocess_flight_data(flights):
     ]
     for col in numeric_cols:
         if col not in features_data.columns:
-            base_data[col + '_code'] = -1
+            base_data[col] = -1
         else:
             # Convert to numeric, handling NaN values
             numeric_series = pd.to_numeric(features_data[col], errors='coerce')
-            base_data[col + '_code'] = numeric_series.fillna(-1).astype(int)
+            base_data[col] = numeric_series.fillna(-1).astype(int)
     
     date_cols = [
         'STD', 'ETD', 'ATD', 'STA', 'ETA', 'ATA', 'ONBLOCK', 'AC_READY', 'TSAT', 'OFFBLOCK', 'TOBT', 'CTOT', 'MVT'
     ]
     for col in date_cols:
         if col not in features_data.columns:
-            base_data[col + '_code'] = -1
+            base_data[col] = -1
         else:
             # For date columns, convert to numeric or keep as is
-            base_data[col + '_code'] = features_data[col]
+            base_data[col] = features_data[col]
     flight_data_df = pd.DataFrame(base_data, index=range(len(flights)))
     
     # Waypoint columns: wp1_... to wp50_... for each in waypoints_cols
@@ -56,11 +56,11 @@ def preprocess_flight_data(flights):
         for i in range(1, 51):
             col = f'wp{i}_{base}'
             if col not in features_data.columns:
-                waypoint_data[col + '_code'] = -1
+                waypoint_data[col] = -1
             else:
                 # Convert to numeric, handling NaN values
                 numeric_series = pd.to_numeric(features_data[col], errors='coerce')
-                waypoint_data[col + '_code'] = numeric_series.fillna(-1).astype(int)
+                waypoint_data[col] = numeric_series.fillna(-1).astype(int)
     waypoint_df = pd.DataFrame(waypoint_data, index=range(len(flights)))
     flight_data_df = pd.concat([flight_data_df, waypoint_df], axis=1)
     
@@ -71,11 +71,11 @@ def preprocess_flight_data(flights):
         for i in range(1, 21):
             col = f'ac{i}_{base}'
             if col not in features_data.columns:
-                acars_data[col + '_code'] = -1
+                acars_data[col] = -1
             else:
                 # Convert to numeric, handling NaN values
                 numeric_series = pd.to_numeric(features_data[col], errors='coerce')
-                acars_data[col + '_code'] = numeric_series.fillna(-1).astype(int)
+                acars_data[col] = numeric_series.fillna(-1).astype(int)
                 
     acars_df = pd.DataFrame(acars_data, index=range(len(flights)))
     features_data = pd.concat([flight_data_df, acars_df], axis=1)
