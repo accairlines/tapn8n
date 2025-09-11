@@ -12,6 +12,9 @@ category_cols_all = [
     'fp_ROUTE_NAME', 'fp_ROUTE_OPTIMIZATION', 'fp_CLIMB_PROC', 'fp_CRUISE_PROC', 'fp_DESCENT_PROC', 'eq_BODYTYPE', 
     'eq_EQUIPTYPE', 'eq_EQUIPTYPE2'
 ]
+category_cols = [
+    'OPERATOR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'fp_CRUISE_PROC', 'eq_EQUIPTYPE', 'eq_EQUIPTYPE2'
+]
 
 numeric_cols_all = [
     'FLT_NR', 'PAX_BOARDED', 'CARGO', 'CAPACITY', 'fp_PERFORMANCE_FACTOR', 'fp_CLIMB_CI', 'fp_CRUISE_CI', 'fp_DESCENT_CI', 
@@ -19,27 +22,30 @@ numeric_cols_all = [
     'actual_airborne', 'actual_taxi_in', 'actual_total_time', 'planned_taxi_out', 'planned_airborne', 'planned_taxi_in', 
     'planned_total_time', 'AET', 'EET'
 ]
+numeric_cols = [
+    'FLT_NR', 'fp_CRUISE_CI'
+]
 
 waypoints_cols_all = [
     'SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE'
 ]
+waypoints_cols = []
 
 date_cols_all = [
     'STD', 'ETD', 'ATD', 'STA', 'ETA', 'ATA', 'ONBLOCK', 'AC_READY', 'TSAT', 'OFFBLOCK', 'TOBT', 'CTOT', 'MVT'
 ]
+date_cols = [
+    'STD'
+]
 
 acars_cols_all = ['WINDDIRECTION', 'WINDSPEED']
+acars_cols = []
     
 def preprocess_flight_data(flights):
     """Preprocess all flight features for model training: encode all columns as category codes, fill missing with -1."""
     # Create DataFrame from flights
     features_data = pd.DataFrame(flights)
     targets_data = pd.DataFrame()
-
-    # Ensure all columns are present
-    category_cols = [
-        'OPERATOR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'fp_STD', 'fp_CRUISE_PROC', 'eq_EQUIPTYPE', 'eq_EQUIPTYPE2'
-    ]
     
     # Verify all category columns exist in category_cols_all
     invalid_cols = [col for col in category_cols if col not in category_cols_all]
@@ -53,10 +59,6 @@ def preprocess_flight_data(flights):
         else:
             base_data[col + '_code'] = codification.categorialcoding(features_data[col])
     
-    numeric_cols = [
-        'FLT_NR', 'fp_CRUISE_CI'
-    ]
-    
     # Verify all numeric columns exist in numeric_cols_all
     invalid_cols = [col for col in numeric_cols if col not in numeric_cols_all]
     if invalid_cols:
@@ -68,11 +70,7 @@ def preprocess_flight_data(flights):
             # Convert to numeric, handling NaN values
             numeric_series = pd.to_numeric(features_data[col], errors='coerce')
             base_data[col] = numeric_series.fillna(-1).astype(int)
-    
-    date_cols = [
-        'STD'
-    ]
-    
+        
     # Verify all date columns exist in date_cols_all
     invalid_cols = [col for col in date_cols if col not in date_cols_all]
     if invalid_cols:
@@ -99,10 +97,7 @@ def preprocess_flight_data(flights):
             base_data[col + '_dayofyear'] = date.dt.dayofyear.fillna(-1).astype(int)
             base_data[col + '_dayofweek'] = date.dt.dayofweek.fillna(-1).astype(int)
     flight_data_df = pd.DataFrame(base_data, index=range(len(flights)))
-    
-    # Waypoint columns: wp1_... to wp50_... for each in waypoints_cols
-    waypoints_cols = []
-    
+        
     # Verify all waypoints columns exist in waypoints_cols_all
     invalid_cols = [col for col in waypoints_cols if col not in waypoints_cols_all]
     if invalid_cols:
@@ -120,8 +115,6 @@ def preprocess_flight_data(flights):
     waypoint_df = pd.DataFrame(waypoint_data, index=range(len(flights)))
     flight_data_df = pd.concat([flight_data_df, waypoint_df], axis=1)
     
-    # Acars columns: ac1_... to ac20_... for each in acars_cols
-    acars_cols = []
     
     # Verify all acars columns exist in acars_cols_all
     invalid_cols = [col for col in acars_cols if col not in acars_cols_all]
