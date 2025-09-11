@@ -43,7 +43,15 @@ def preprocess_flight_data(flights):
     ]
     for col in date_cols:
         if col not in features_data.columns:
-            base_data[col] = -1
+            base_data[col + '_month'] = [-1]
+            base_data[col + '_year'] = [-1]
+            base_data[col + '_hour'] = [-1]
+            base_data[col + '_minute'] = [-1]
+            base_data[col + '_second'] = [-1]
+            base_data[col + '_weekday'] = [-1]
+            base_data[col + '_day'] = [-1]
+            base_data[col + '_dayofyear'] = [-1]
+            base_data[col + '_dayofweek'] = [-1]
         else:
             # For date columns, convert to numeric or keep as is
             date_series = features_data[col]
