@@ -56,17 +56,19 @@ def preprocess_flight_data(flight):
             # Remove the index name to avoid duplicate column issues
             if hasattr(date_series, 'name'):
                 date_series.name = None
-            date = features_data[col]
-            base_data[col + '_month'] = date.month
-            base_data[col + '_year'] = date.year
-            base_data[col + '_hour'] = date.hour
-            base_data[col + '_minute'] = date.minute
-            base_data[col + '_second'] = date.second
-            base_data[col + '_week'] = date.week
-            base_data[col + '_day'] = date.day
-            base_data[col + '_dayofyear'] = date.dayofyear
-            base_data[col + '_dayofweek'] = date.dayofweek
-            base_data[col + '_dayofweek'] = date.dayofweek
+            # Convert to datetime
+            date = pd.to_datetime(features_data[col], errors='coerce')
+            # Extract month and year, filling NaN with -1
+            base_data[col + '_month'] = date.dt.month.fillna(-1).astype(int)
+            base_data[col + '_year'] = date.dt.year.fillna(-1).astype(int)
+            base_data[col + '_hour'] = date.hour.fillna(-1).astype(int)
+            base_data[col + '_minute'] = date.minute.fillna(-1).astype(int)
+            base_data[col + '_second'] = date.second.fillna(-1).astype(int)
+            base_data[col + '_week'] = date.week.fillna(-1).astype(int)
+            base_data[col + '_day'] = date.day.fillna(-1).astype(int)
+            base_data[col + '_dayofyear'] = date.dayofyear.fillna(-1).astype(int)
+            base_data[col + '_dayofweek'] = date.dayofweek.fillna(-1).astype(int)
+            base_data[col + '_dayofweek'] = date.dayofweek.fillna(-1).astype(int)
     # Determine the number of flights for index creation
     flight_data_df = pd.DataFrame(base_data, index=range(len(features_data)))
     
