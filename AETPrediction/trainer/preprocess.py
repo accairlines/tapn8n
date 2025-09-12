@@ -13,7 +13,6 @@ category_cols_all = [
     'eq_EQUIPTYPE', 'eq_EQUIPTYPE2'
 ]
 category_cols = [
-#    'OPERATOR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'fp_CRUISE_PROC', 'eq_EQUIPTYPE', 'eq_EQUIPTYPE2'
     'OPERATOR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'DIV_IATA', 'FROM_TERMINAL', 'FROM_GATE', 'FROM_STAND', 
     'TO_TERMINAL', 'TO_STAND', 'AC_READY', 'CALL_SIGN', 'SERV_TYP_COD', 'CHG_REASON', 'fp_FLP_FILE_NAME', 'fp_STD', 
     'fp_CALLSIGN', 'fp_CAPTAIN', 'fp_DEPARTURE_AIRP', 'fp_ARRIVAL_AIRP', 'fp_AIRCRAFT_ICAO_TYPE', 'fp_AIRLINE_SPEC',
@@ -28,11 +27,8 @@ numeric_cols_all = [
     'planned_total_time', 'AET', 'EET'
 ]
 numeric_cols = [
-#    'FLT_NR', 'fp_CRUISE_CI'
     'FLT_NR', 'PAX_BOARDED', 'CARGO', 'CAPACITY', 'fp_PERFORMANCE_FACTOR', 'fp_CLIMB_CI', 'fp_CRUISE_CI', 'fp_DESCENT_CI', 
-    'fp_GREAT_CIRC', 'fp_ZERO_FUEL_WEIGHT', 'fp_TAXI_OUT_TIME', 'fp_TAXI_IN_TIME', 'fp_FLIGHT_TIME', 'actual_taxi_out', 
-    'actual_airborne', 'actual_taxi_in', 'actual_total_time', 'planned_taxi_out', 'planned_airborne', 'planned_taxi_in', 
-    'planned_total_time', 'AET', 'EET'
+    'fp_GREAT_CIRC', 'fp_ZERO_FUEL_WEIGHT', 'fp_TAXI_OUT_TIME', 'fp_TAXI_IN_TIME', 'fp_FLIGHT_TIME'
 ]
 
 waypoints_cols_all = [
@@ -44,17 +40,16 @@ date_cols_all = [
     'STD', 'ETD', 'ATD', 'STA', 'ETA', 'ATA', 'ONBLOCK', 'AC_READY', 'TSAT', 'OFFBLOCK', 'TOBT', 'CTOT', 'MVT'
 ]
 date_cols = [
-#    'STD'
-    'STD', 'ETD', 'ATD', 'STA', 'ETA', 'ATA', 'ONBLOCK', 'AC_READY', 'TSAT', 'OFFBLOCK', 'TOBT', 'CTOT', 'MVT'
+    'STD', 'ETD', 'ATD', 'AC_READY', 'TSAT', 'OFFBLOCK', 'TOBT', 'CTOT', 'MVT'
 ]
 
 acars_cols_all = ['WINDDIRECTION', 'WINDSPEED', 'TIME_TO_STA', 'TIME_TO_ETA']
-acars_cols = ['WINDDIRECTION', 'WINDSPEED', 'TIME_TO_STA', 'TIME_TO_ETA']
+acars_cols = ['WINDDIRECTION', 'WINDSPEED']
 
 calculated_cols_all = [
     'actual_taxi_out', 'actual_airborne', 'actual_taxi_in', 'actual_total_time', 'planned_taxi_out', 'planned_airborne', 'planned_taxi_in', 'planned_total_time', 'AET', 'EET'
 ]
-calculated_cols = ['AET', 'EET']
+calculated_cols = ['planned_taxi_out', 'planned_airborne', 'planned_taxi_in', 'planned_total_time','EET']
     
 def preprocess_flight_data(flights):
     """Preprocess all flight features for model training: encode all columns as category codes, fill missing with -1."""
