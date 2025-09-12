@@ -216,7 +216,7 @@ def format_prediction_response(flight_id, prediction, flight_data):
             'predict': str(prediction)
         }
     
-    logger.error(f"Invalid prediction structure for flight {flight_id}: {str(prediction)}")
+    logger.info(f"Prediction output structure for flight {flight_id}: {str(prediction)}")
     
     # Calculate total predicted AET
     total_predicted = (
