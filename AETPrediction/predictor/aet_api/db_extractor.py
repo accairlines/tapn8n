@@ -102,11 +102,8 @@ class DatabaseExtractor:
                 acars_df, equipments_df, aircrafts_df, stations_df
             )
             
-            # Create features for XGBoost model
-            features_df = self._create_model_features(combined_df)
-            
-            logger.info(f"Successfully extracted {len(features_df)} records with {len(features_df.columns)} features")
-            return features_df
+            logger.info(f"Successfully extracted {len(combined_df)} records with {len(combined_df.columns)} features")
+            return combined_df
             
         except Exception as e:
             logger.error(f"Error extracting flight data: {str(e)}")

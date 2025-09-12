@@ -50,8 +50,8 @@ flights_cols_all = [
 flight_plan_cols_all = [
     'FLP_FILE_NAME', 'STD', 'CALLSIGN', 'CAPTAIN', 'DEPARTURE_AIRP', 'ARRIVAL_AIRP', 'AIRCRAFT_ICAO_TYPE',
     'AIRLINE_SPEC','PERFORMANCE_FACTOR', 'ROUTE_NAME', 'ROUTE_OPTIMIZATION', 'CLIMB_PROC', 'CLIMB_CI', 'CRUISE_PROC',
-    'CRUISE_CI', 'DESCENT_PROC', 'DESCENT_CI', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT', 'TAXI_OUT_TIME', 'TAXI_IN_TIME',
-    'FLIGHT_TIME'
+    'CRUISE_CI', 'DESCENT_PROC', 'DESCENT_CI', 'GREAT_CIRC', 'ZERO_FUEL_WEIGHT', 'TRIP_DURATION', 'TAXI_OUT_TIME', 
+    'TAXI_IN_TIME', 'FLIGHT_TIME'
 ]
 waypoints_cols_all = [
     'ALTITUDE', 'SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE',
@@ -91,6 +91,9 @@ def load_data():
                 for col in missing_cols:
                     df[col] = None
                 df = df.reindex(columns=usecols)
+                # Replace NaN values with None
+                df = df.replace({pd.NA: None, pd.NaT: None, np.nan: None})
+                df = df.where(pd.notna(df), None)
             df_list.append(df)
             logging.debug(f"End of reading file: {f}")
         df_list = [df for df in df_list if not df.empty and not all(df.isna().all())]
@@ -200,58 +203,50 @@ def calculate_planned_actual_times(flights):
         except Exception:
             return pd.NaT
 
+    # Helper to parse time string to seconds
+    def parse_time_to_seconds(time_str, default='00:00:00'):
+        try:
+            if pd.isna(time_str) or time_str is None:
+                time_str = default
+            h, m, s = map(int, str(time_str).split(':'))
+            return h * 3600 + m * 60 + s
+        except (ValueError, AttributeError):
+            return 0
+
     for flight in flights:
         # Parse all relevant datetimes
         offblock = parse_dt(flight.get('OFFBLOCK'))
         mvt = parse_dt(flight.get('MVT'))
         ata = parse_dt(flight.get('ATA'))
-        onblock = parse_dt(flight.get('ONBLOCK'))        
+        onblock = parse_dt(flight.get('ONBLOCK'))
+        eta = parse_dt(flight.get('ETA'))
+        from_timediff = flight.get('FROM_TIMEDIFF')
+        to_timediff = flight.get('TO_TIMEDIFF')
         
-        # Planned Taxi out
-        taxi_out_str = flight.get('TAXI_OUT_TIME', '00:00:00')
-        h, m, s = map(int, taxi_out_str.split(':'))
-        planned_taxi_out = h * 3600 + m * 60 + s if taxi_out_str else 0
-        # Planned Airborne
-        flight_time = flight.get('FLIGHT_TIME') or flight.get('TRIP_DURATION', '00:00:00')
-        h, m, s = map(int, flight_time.split(':'))
-        planned_airborne = h * 3600 + m * 60 + s if flight_time else 0
-        # Planned Taxi in  
-        taxi_in_str = flight.get('TAXI_IN_TIME', '00:00:00')
-        h, m, s = map(int, taxi_in_str.split(':'))
-        planned_taxi_in = h * 3600 + m * 60 + s if taxi_in_str else 0
-                
-        # Planned Taxi out
-        taxi_out_str = flight.get('TAXI_OUT_TIME', '00:00:00')
-        h, m, s = map(int, taxi_out_str.split(':'))
-        planned_taxi_out = h * 3600 + m * 60 + s if taxi_out_str else 0
-        # Planned Airborne
-        flight_time = flight.get('FLIGHT_TIME') or flight.get('TRIP_DURATION', '00:00:00')
-        h, m, s = map(int, flight_time.split(':'))
-        planned_airborne = h * 3600 + m * 60 + s if flight_time else 0
-        # Planned Taxi in  
-        taxi_in_str = flight.get('TAXI_IN_TIME', '00:00:00')
-        h, m, s = map(int, taxi_in_str.split(':'))
-        planned_taxi_in = h * 3600 + m * 60 + s if taxi_in_str else 0
+        flight_plan = flight.get('flight_plan')
+        # Calculate planned times (in seconds)
+        planned_taxi_out = parse_time_to_seconds(flight_plan.get('TAXI_OUT_TIME')) / 60 if flight_plan.get('TAXI_OUT_TIME') is not None else 0
+        flight_time = flight_plan.get('FLIGHT_TIME') or flight_plan.get('TRIP_DURATION')
+        planned_airborne = parse_time_to_seconds(flight_time) / 60 if flight_time is not None else 0
+        planned_taxi_in = parse_time_to_seconds(flight_plan.get('TAXI_IN_TIME')) / 60 if flight_plan.get('TAXI_IN_TIME') is not None else 0
 
-        # Taxi out: MVT - OFFBLOCK
+        # Calculate actual times (in minutes)
         actual_taxi_out = (mvt - offblock).total_seconds() / 60 if pd.notnull(mvt) and pd.notnull(offblock) else None
-        # Airborne: ATA - MVT
-        actual_airborne = (ata - mvt).total_seconds() / 60 if pd.notnull(ata) and pd.notnull(mvt) else None
-        # Taxi in: ONBLOCK - ATA
+        actual_airborne = ((ata - mvt).total_seconds() - (to_timediff * 60)  + (from_timediff * 60)) / 60 if pd.notnull(ata) and pd.notnull(mvt) else None
         actual_taxi_in = (onblock - ata).total_seconds() / 60 if pd.notnull(onblock) and pd.notnull(ata) else None
-        # Total AET
-        actual_total_time = sum(
-            x for x in [actual_taxi_out, actual_airborne, actual_taxi_in] if x is not None
-        )
-        # AET: ATA - MVT
-        aet = (ata - mvt).total_seconds() / 60 if pd.notnull(ata) and pd.notnull(mvt) else None
-        # EET: ETA - MVT
-        eet = (planned_taxi_out + planned_airborne + planned_taxi_in) / 60
-        eet = (planned_taxi_out + planned_airborne + planned_taxi_in) / 60
-        # delta: AET - EET
+        
+        # Calculate totals
+        actual_total_time = actual_taxi_out + actual_airborne + actual_taxi_in if actual_taxi_out is not None and actual_airborne is not None and actual_taxi_in is not None else None
+        planned_total_time = planned_taxi_out + planned_airborne + planned_taxi_in
+        
+        # AET: ATA - MVT (in minutes)
+        aet = actual_airborne
+        # EET: planned total time (in minutes)
+        eet = planned_total_time
+        # Delta: AET - EET
         actual_delta = (aet - eet) if aet is not None and eet is not None else None
 
-        # Add to dict
+        # Add calculated values to the copy
         flight['actual_taxi_out'] = actual_taxi_out
         flight['actual_airborne'] = actual_airborne
         flight['actual_taxi_in'] = actual_taxi_in
@@ -259,10 +254,10 @@ def calculate_planned_actual_times(flights):
         flight['planned_taxi_out'] = planned_taxi_out
         flight['planned_airborne'] = planned_airborne
         flight['planned_taxi_in'] = planned_taxi_in
-        flight['planned_total_time'] = planned_taxi_out + planned_airborne + planned_taxi_in
+        flight['planned_total_time'] = planned_total_time
         flight['AET'] = aet
         flight['EET'] = eet
-        flight['delta'] = actual_delta
+        flight['actual_delta'] = actual_delta
 
     return flights
 
@@ -279,7 +274,7 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
             return pd.NaT
 
     # --- 1. Build station TIMEDIFF map ---
-    station_timediff = {(str(s.get('STATION', '')).strip(), s.get('DAY_NUM')): s.get('TIMEDIFF_MINUTES', 0) for s in stations}
+    stations_timediff = {(str(s.get('STATION', '')).strip(), s.get('DAY_NUM')): s.get('TIMEDIFF_MINUTES', 0) for s in stations}
     # --- 2. Preprocess flight_plan: keep only latest TS for each (CALLSIGN, DEPARTURE_AIRP, STD) ---
     flight_plan_latest = {}
     logging.debug(f"flight_plan to be processed... {len(flight_plan)}")
@@ -301,15 +296,26 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
         from_iata = str(flight.get('FROM_IATA', '')).strip()
         # Convert STD (local) to UTC
         std_local = parse_dt(flight.get('STD'))
-        timediff = station_timediff.get((from_iata, std_local.dayofyear if pd.notnull(std_local) else None), 0)
-        std_utc = std_local - pd.to_timedelta(timediff, unit='m') if pd.notnull(std_local) else pd.NaT
+        from_timediff = stations_timediff.get((from_iata, std_local.day_of_year), 0)
+        std_utc = std_local - pd.to_timedelta(from_timediff, unit='m') if pd.notnull(std_local) else pd.NaT
         # Build key for matching
         key = (
             str(flight.get('CALL_SIGN', '')).strip(),
             from_iata,
             str(std_utc)
         )
+        flight['FROM_TIMEDIFF'] = from_timediff
         flight['STD_UTC'] = std_utc
+        # Build key for matching
+        key = (
+            str(flight.get('CALL_SIGN', '')).strip(),
+            from_iata,
+            str(std_utc)
+        )
+        to_iata = str(flight.get('TO_IATA', '')).strip()
+        sta_local = parse_dt(flight.get('STA'))
+        to_timediff = stations_timediff.get((to_iata, sta_local.day_of_year), 0)
+        flight['TO_TIMEDIFF'] = to_timediff
         flight['flight_plan'] = flight_plan_latest.get(key)
     logging.debug(f"flights... {len(flights)}")
     # --- 4. Merge aircraft into flights ---
@@ -371,13 +377,12 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
                 # Convert STD (local) to UTC
                 std_local = parse_dt(flight.get('STD'))
                 # Get flight's TIMEDIFF_MINUTES and STA
-                timediff = station_timediff.get((from_iata, std_local.dayofyear if pd.notnull(std_local) else None), 0)
                 sta = pd.to_datetime(flight.get('STA'), errors='coerce')
                 eta = pd.to_datetime(flight.get('ETA'), errors='coerce')
                 
                 # Calculate STA_UTC by subtracting TIMEDIFF_MINUTES from STA
                 if pd.notnull(sta):
-                    sta_utc = sta - pd.Timedelta(minutes=timediff)
+                    sta_utc = sta - pd.Timedelta(minutes=to_timediff)
                     
                     # Calculate minutes between REPORTTIME and STA_UTC
                     report_time = pd.to_datetime(a.get('REPORTTIME'), errors='coerce')
@@ -388,8 +393,10 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
                         a['MINUTES_TO_ETA'] = minutes_to_eta
                     else:
                         a['MINUTES_TO_STA'] = -1
+                        a['MINUTES_TO_ETA'] = -1
                 else:
                     a['MINUTES_TO_STA'] = -1
+                    a['MINUTES_TO_ETA'] = -1
                 
                 acars_matches.append(a)
         flight['acars'] = acars_matches
@@ -527,7 +534,7 @@ def extract_targetsfeatures_from_flights(flights):
         row['planned_total_time'] = flight.get('planned_total_time')
         row['AET'] = flight.get('AET')
         row['EET'] = flight.get('EET')
-        row['delta'] = flight.get('delta')
+        row['delta'] = flight.get('actual_delta')
         data.append(row)
     feactures_processed, targets_processed = preprocess_flight_data(data)
     return feactures_processed, targets_processed
@@ -644,18 +651,23 @@ def main():
         logging.info("=== Loading Data ===")
         flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations, folders_paths = load_data()
         logging.info("=== Loading Data Completed ===")
-        
-        # Calculate actual times
-        logging.info("=== Calculating Actual Times ===")
-        flights = calculate_planned_actual_times(flights)
-        logging.info("=== Calculating Actual Times Completed ===")
-        
+                
         # Prepare training data
         logging.info("=== Preparing Training Data ===")
         flights = prepare_training_data(
             flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations
         )
         logging.info("=== Preparing Training Data Completed ===")
+        
+        # Remove flights with no flight_plan
+        logging.info("=== Removing Flights with No Flight Plan ===")
+        flights = [flight for flight in flights if flight.get('flight_plan')]
+        logging.info("=== Removing Flights with No Flight Plan Completed ===")
+        
+        # Calculate actual times
+        logging.info("=== Calculating Actual Times ===")
+        flights = calculate_planned_actual_times(flights)
+        logging.info("=== Calculating Actual Times Completed ===")
 
         # Extract targets and features from new data
         logging.info("=== Extracting Targets and Features ===")

@@ -40,6 +40,11 @@ date_cols = [
 
 acars_cols_all = ['WINDDIRECTION', 'WINDSPEED']
 acars_cols = []
+
+calculated_cols_all = [
+    'actual_taxi_out', 'actual_airborne', 'actual_taxi_in', 'actual_total_time', 'planned_taxi_out', 'planned_airborne', 'planned_taxi_in', 'planned_total_time', 'AET', 'EET'
+]
+calculated_cols = ['AET', 'EET']
     
 def preprocess_flight_data(flights):
     """Preprocess all flight features for model training: encode all columns as category codes, fill missing with -1."""
@@ -63,6 +68,14 @@ def preprocess_flight_data(flights):
     invalid_cols = [col for col in numeric_cols if col not in numeric_cols_all]
     if invalid_cols:
         raise ValueError(f"The following numeric columns are not in numeric_cols_all: {invalid_cols}")
+    
+    # Verify all numeric columns exist in numeric_cols_all
+    invalid_cols = [col for col in calculated_cols if col not in calculated_cols_all]
+    if invalid_cols:
+        raise ValueError(f"The following calculated numeric columns are not in calculated_cols_all: {invalid_cols}")
+    
+    numeric_cols.extend(calculated_cols)
+    
     for col in numeric_cols:
         if col not in features_data.columns:
             base_data[col] = -1

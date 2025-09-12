@@ -46,16 +46,8 @@ class ModelLoader:
         predictions = {}
         for target, model in self.model_data['models'].items():
             pred = model.predict(features_scaled)[0]
-            # Ensure non-negative predictions
-            pred = max(0, pred)
-            
             # Map model target names to API response names
-            if target == 'actual_taxi_out':
-                predictions['taxi_out'] = pred
-            elif target == 'actual_airborne':
-                predictions['airborne'] = pred
-            elif target == 'actual_taxi_in':
-                predictions['taxi_in'] = pred
+            predictions['delta'] = pred
         
         return predictions
     
