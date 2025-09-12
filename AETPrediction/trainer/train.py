@@ -673,6 +673,7 @@ def main():
             features, targets = new_features, new_targets
         
         # Save combined features and targets to CSV for caching
+        logging.info(f"Features: {features.shape}, Targets: {targets.shape}")
         logging.info("=== Saving Combined Features and Targets to CSV ===")
         save_features_targets_to_csv(features, targets)
         logging.info("=== Saving Combined Features and Targets to CSV Completed ===")

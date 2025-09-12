@@ -32,7 +32,7 @@ def predict_flight(request, flight_id):
         # Get flight data from database
         flight_data = get_flight_data(flight_id)
         
-        if not flight_data:
+        if flight_data is None:
             return JsonResponse({
                 'error': 'Flight not found'
             }, status=404)
