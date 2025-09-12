@@ -81,25 +81,6 @@ def get_flight_data(flight_id):
         logger.error(f"Error getting flight data for ID {flight_id}: {str(e)}")
         return None
 
-def get_recent_flights(minutes=30):
-    """Get flight IDs that departed in the last N minutes"""
-    try:
-        # Set start date to current UTC time
-        start_date = (timezone.now() - timedelta(minutes=minutes)).strftime('%Y-%m-%d')
-        end_date = (timezone.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-        flight_df = get_flight_data_for_prediction(start_date=start_date, end_date=end_date, days_back=None, flight_id=None)
-        
-        # Extract flight IDs from the DataFrame
-        if flight_df.empty:
-            return []
-        
-        # Return list of flight IDs
-        return flight_df['ID'].tolist() if 'ID' in flight_df.columns else []
-        
-    except Exception as e:
-        logger.error(f"Error getting recent flights: {str(e)}")
-        return []
-
 def format_prediction_response(flight_id, prediction, flight_data):
     """Format prediction into API response"""
     # Convert predictions from minutes to HH:MM:SS format
