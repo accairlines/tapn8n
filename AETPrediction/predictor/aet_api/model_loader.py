@@ -38,6 +38,7 @@ class ModelLoader:
         # Prepare features
         features = preprocess_flight_data(flight_data)
         
+        logger.info(f"Features: {str(features)}")
         # Scale features
         features_scaled = self.model_data['scaler'].transform(features)
         
