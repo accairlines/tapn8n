@@ -40,7 +40,7 @@ date_cols_all = [
     'STD', 'ETD', 'ATD', 'STA', 'ETA', 'ATA', 'ONBLOCK', 'AC_READY', 'TSAT', 'OFFBLOCK', 'TOBT', 'CTOT', 'MVT'
 ]
 date_cols = [
-    'STD', 'ETD', 'ATD', 'AC_READY', 'TSAT', 'OFFBLOCK', 'TOBT', 'CTOT', 'MVT'
+    'STD', 'ETD', 'ATD', 'STA', 'ETA', 'AC_READY', 'TSAT', 'OFFBLOCK', 'TOBT', 'CTOT', 'MVT'
 ]
 
 acars_cols_all = ['WINDDIRECTION', 'WINDSPEED', 'TIME_TO_STA', 'TIME_TO_ETA']
