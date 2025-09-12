@@ -243,8 +243,10 @@ def calculate_planned_actual_times(flights):
         aet = actual_airborne
         # EET: planned total time (in minutes)
         eet = planned_total_time
-        # Delta: AET - EET
-        actual_delta = (aet - eet) if aet is not None and eet is not None else None
+        # Delta: AET - EET (in minutes)
+        raw_delta = (aet - eet) if aet is not None and eet is not None else None
+        # Convert delta to percentage of EET
+        actual_delta = (raw_delta / eet * 100) if raw_delta is not None and eet is not None and eet != 0 else None
 
         # Add calculated values to the copy
         flight['actual_taxi_out'] = actual_taxi_out
@@ -449,7 +451,7 @@ def train_models(features, targets):
         models[target] = model
         metrics[target] = {'mae': mae, 'r2': r2}
         
-        logging.info(f"{target} - MAE: {mae:.2f} minutes, R2: {r2:.3f}")
+        logging.info(f"{target} - MAE: {mae:.2f}%, R2: {r2:.3f}")
     
     return models, scaler, metrics
 

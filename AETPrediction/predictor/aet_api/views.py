@@ -97,7 +97,7 @@ def format_prediction_response(flight_id, prediction, flight_data):
         return {
             'flight_id': flight_id,
             'error': 'Invalid prediction data',
-            'delta_minutes': 0,
+            'delta_percentage': 0,
             'predict': str(prediction)
         }
     
@@ -116,8 +116,8 @@ def format_prediction_response(flight_id, prediction, flight_data):
         'actual_taxi_in': round(flight_data['actual_taxi_in']) if flight_data['actual_taxi_in'] is not None else -1,
         'actual_total_time': round(flight_data['actual_total_time']) if flight_data['actual_total_time'] is not None else -1,
         'aet': round(flight_data['AET']) if flight_data['AET'] is not None else -1,
-        'eet': round(flight_data['EET']) if flight_data['EET'] is not None else 0,
-        'delta_minutes': round(prediction['delta']) if prediction['delta'] is not None else 0
+        'eet': round(flight_data['EET']) if flight_data['EET'] is not None else -1,
+        'delta_percentage': round(prediction['delta'], 2) if prediction['delta'] is not None else -1
     } 
     
 def calculate_planned_actual_times(flight_row):
@@ -155,8 +155,10 @@ def calculate_planned_actual_times(flight_row):
     aet = (ata - mvt).total_seconds() / 60 if pd.notnull(ata) and pd.notnull(mvt) else None
     # EET: planned total time (in minutes)
     eet = planned_total_time
-    # Delta: AET - EET
-    actual_delta = (aet - eet) if aet is not None and eet is not None else None
+    # Delta: AET - EET (in minutes)
+    raw_delta = (aet - eet) if aet is not None and eet is not None else None
+    # Convert delta to percentage of EET
+    actual_delta = (raw_delta / eet * 100) if raw_delta is not None and eet is not None and eet != 0 else None
 
     # Create a copy of the flight_row to avoid SettingWithCopyWarning
     flight_data = flight_row.copy()
