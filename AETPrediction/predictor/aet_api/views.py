@@ -200,7 +200,7 @@ def format_prediction_response(flight_id, prediction, flight_data):
         return f"{hours:02d}:{mins:02d}:{secs:02d}"
     
     # Validate prediction structure
-    if not isinstance(prediction, dict) or not all(key in prediction for key in ['taxi_out', 'airborne', 'taxi_in']):
+    if not isinstance(prediction, dict):
         logger.error(f"Invalid prediction structure for flight {flight_id}: {prediction}")
         return {
             'flight_id': flight_id,
@@ -212,8 +212,11 @@ def format_prediction_response(flight_id, prediction, flight_data):
                 'taxi_in': "00:00:00"
             },
             'planned_eet': "00:00:00",
-            'delta_minutes': 0
+            'delta_minutes': 0,
+            'predict': str(prediction)
         }
+    
+    logger.error(f"Invalid prediction structure for flight {flight_id}: {str(prediction)}")
     
     # Calculate total predicted AET
     total_predicted = (
