@@ -13,8 +13,8 @@ category_cols_all = [
     'eq_EQUIPTYPE', 'eq_EQUIPTYPE2'
 ]
 category_cols = [
-    'OPERATOR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'CALL_SIGN', 'SERV_TYP_COD', 'fp_CAPTAIN', 'fp_AIRLINE_SPEC',
-    'fp_ROUTE_NAME', 'fp_ROUTE_OPTIMIZATION', 'fp_CRUISE_PROC', 'eq_EQUIPTYPE'
+    'FROM_IATA', 'TO_IATA', 'CALL_SIGN', 'SERV_TYP_COD', 'fp_CAPTAIN', 'fp_ROUTE_NAME', 'fp_ROUTE_OPTIMIZATION', 
+    'fp_CRUISE_PROC', 'eq_EQUIPTYPE'
 ]
 
 numeric_cols_all = [
@@ -24,15 +24,13 @@ numeric_cols_all = [
     'planned_total_time', 'AET', 'EET'
 ]
 numeric_cols = [
-    'FLT_NR', 'PAX_BOARDED', 'CARGO', 'CAPACITY', 'fp_PERFORMANCE_FACTOR', 'fp_CRUISE_CI', 'fp_GREAT_CIRC'
+    'FLT_NR', 'fp_PERFORMANCE_FACTOR', 'fp_CRUISE_CI', 'fp_GREAT_CIRC'
 ]
 
 waypoints_cols_all = [
     'SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE'
 ]
-waypoints_cols = [
-    'SEG_WIND_DIRECTION', 'SEG_WIND_SPEED', 'SEG_TEMPERATURE'
-]
+waypoints_cols = []
 
 date_cols_all = [
     'STD', 'ETD', 'ATD', 'STA', 'ETA', 'ATA', 'ONBLOCK', 'AC_READY', 'TSAT', 'OFFBLOCK', 'TOBT', 'CTOT', 'MVT'
@@ -50,7 +48,7 @@ calculated_cols_all = [
     'actual_taxi_out', 'actual_airborne', 'actual_taxi_in', 'actual_total_time', 'planned_taxi_out', 'planned_airborne', 'planned_taxi_in', 'planned_total_time', 'AET', 'EET'
 ]
 calculated_cols = [
-    'planned_total_time','EET'
+    'EET'
 ]
     
 def preprocess_flight_data(flights):
