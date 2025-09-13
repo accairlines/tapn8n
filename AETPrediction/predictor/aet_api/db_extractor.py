@@ -101,13 +101,26 @@ class DatabaseExtractor:
                 flights_df, flight_plans_df, waypoints_df, mel_df, 
                 acars_df, equipments_df, aircrafts_df, stations_df
             )
-            
+                
             logger.info(f"Successfully extracted {len(combined_df)} records with {len(combined_df.columns)} features")
             return combined_df
             
         except Exception as e:
             logger.error(f"Error extracting flight data: {str(e)}")
             raise
+    
+    def extract_flight_hist_aeteet(self, flight_id):
+        """Extract data from ACARS table"""
+        query = """
+        SELECT FLT_NO, DELTA
+        FROM osusr_uuk_flt_info f
+        INNER JOIN view_hist_aet_eet h ON f.FLT_NR = h.FLT_NO
+        WHERE f.ID = %s"""
+        
+        params = [flight_id]
+        logger.info(f"Looking for flight with ID: {flight_id} (type: {type(flight_id)})")
+        return pd.read_sql(query, self.engine, params=tuple(params))
+    
     
     def _extract_single_flight(self, flight_id):
         """Extract data for a specific flight by ID"""
@@ -438,3 +451,20 @@ def get_flight_data_for_prediction(start_date=None, end_date=None, days_back=2, 
     """
     extractor = DatabaseExtractor()
     return extractor.extract_flight_data(start_date, end_date, days_back, flight_id)
+
+
+def get_flight_hist_aeteet(flight_id):
+    """
+    Convenience function to extract flight data for prediction
+    
+    Args:
+        start_date: Start date for data extraction (YYYY-MM-DD format)
+        end_date: End date for data extraction (YYYY-MM-DD format)
+        days_back: Number of days back from today if dates not provided
+        flight_id: Specific flight ID from OSUSR_UUK_FLT_INFO table
+        
+    Returns:
+        pandas.DataFrame: Processed data ready for XGBoost model
+    """
+    extractor = DatabaseExtractor()
+    return extractor.extract_flight_hist_aeteet(flight_id)

@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 import json
 import logging
 from .model_loader import ModelLoader
-from .db_extractor import get_flight_data_for_prediction
+from .db_extractor import get_flight_data_for_prediction 
+from .db_extractor import get_flight_hist_aeteet
 from django.conf import settings
 import pandas as pd
 import traceback
@@ -41,8 +42,10 @@ def predict_flight(request, flight_id):
         # Make prediction
         prediction = model_loader.predict(flight_data)
         
+        hist_aeteet = get_flight_hist_aeteet(flight_id)
+        
         # Format response
-        response = format_prediction_response(flight_id, prediction, flight_data)
+        response = format_prediction_response(flight_id, prediction, flight_data, hist_aeteet)
         
         return JsonResponse(response)
         
@@ -67,7 +70,7 @@ def get_flight_data(flight_id):
         if flight_df.empty:
             logger.warning(f"No flight data found for ID: {flight_id}")
             return None
-        
+                
         # Convert DataFrame to dictionary format expected by the model
         # Take the first row (should be only one for single flight)
         flight_row = flight_df.iloc[0]
@@ -80,7 +83,7 @@ def get_flight_data(flight_id):
     except Exception as e:
         raise e
 
-def format_prediction_response(flight_id, prediction, flight_data):
+def format_prediction_response(flight_id, prediction, flight_data, hist_aeteet):
     """Format prediction into API response"""
     # Convert predictions from minutes to HH:MM:SS format
     def minutes_to_time(minutes):
@@ -117,7 +120,8 @@ def format_prediction_response(flight_id, prediction, flight_data):
         'actual_total_time': round(flight_data['actual_total_time']) if flight_data['actual_total_time'] is not None else -1,
         'aet': round(flight_data['AET']) if flight_data['AET'] is not None else -1,
         'eet': round(flight_data['EET']) if flight_data['EET'] is not None else -1,
-        'delta_percentage': round(prediction['delta'], 2) if prediction['delta'] is not None else -1
+        'delta_percentage': round(prediction['delta']) if prediction['delta'] is not None else -1,
+        'hist_aeteet': round(hist_aeteet['DELTA'].iloc[0]/60) if hist_aeteet['DELTA'].iloc[0] is not None else -1
     } 
     
 def calculate_planned_actual_times(flight_row):
@@ -174,6 +178,6 @@ def calculate_planned_actual_times(flight_row):
     flight_data['planned_total_time'] = planned_total_time
     flight_data['AET'] = aet
     flight_data['EET'] = eet
-    flight_data['actual_delta'] = actual_delta
+    flight_data['actual_delta'] = raw_delta
 
     return flight_data
