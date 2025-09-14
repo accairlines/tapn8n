@@ -62,8 +62,8 @@ class DatabaseExtractor:
                 flight_date = flights_df['STD'].iloc[0]
                 start_date = flight_date.strftime('%Y-%m-%d')
                 end_date = flight_date.strftime('%Y-%m-%d')
-                day_num = flight_date.dayofyear
-                station = flights_df['FROM_IATA'].iloc[0]
+                stationFrom = flights_df['FROM_IATA'].iloc[0]
+                stationTo = flights_df['TO_IATA'].iloc[0]
             else:
                 # Set default date range if not provided
                 if not end_date:
@@ -87,7 +87,7 @@ class DatabaseExtractor:
             waypoints_df = self._extract_waypoints_table(start_date, end_date, flt_file_name=flt_file_name)
             mel_df = self._extract_mel_table(start_date, end_date, flt_file_name=flt_file_name)
             
-            stations_df = self._extract_stations_table(station=station, day_num=day_num)
+            stations_df = self._extract_stations_table(stationFrom=stationFrom, stationTo=stationTo)
             
             callsign = flights_df['CALL_SIGN'].iloc[0].replace('TAP', 'TP') if not flights_df.empty and 'CALL_SIGN' in flights_df.columns else None
             std = flights_df['STD'].iloc[0] if not flights_df.empty and 'STD' in flights_df.columns else None
@@ -249,17 +249,17 @@ class DatabaseExtractor:
         query = "SELECT ACREGISTRATION, EQUIPTYPEID FROM osusr_uuk_registrations"
         return pd.read_sql(query, self.engine)
     
-    def _extract_stations_table(self, station=None, day_num=None):
+    def _extract_stations_table(self, stationFrom=None, stationTo=None):
         """Extract data from stations table"""
         query = """
         SELECT STATION, TIMEDIFF_MINUTES, DAYS_NUM 
-        FROM view_utc_time_diff_yearly""" + (" WHERE STATION = %s AND DAYS_NUM = %s" if station is not None and day_num is not None else "")
-        
+        FROM view_utc_time_diff_yearly""" + (" WHERE STATION IN (%s, %s)" if stationFrom is not None and stationTo is not None else "")
+
         params = []
-        if station is not None:
-            params.append(station)
-        if day_num is not None:
-            params.append(day_num)
+        if stationFrom is not None:
+            params.append(stationFrom)
+        if stationTo is not None:
+            params.append(stationTo)
         return pd.read_sql(query, self.engine, params=tuple(params))
     
     
@@ -276,10 +276,20 @@ class DatabaseExtractor:
         combined_df = flights_df.copy()
 
         std_local = parse_dt(combined_df.get('STD').iloc[0])
-        std_utc = std_local - pd.to_timedelta(stations_df.get('timediff_minutes').iloc[0], unit='m')
+        from_iata = combined_df.get('FROM_IATA').iloc[0]
+        from_timediff_df = stations_df[(stations_df['STATION'] == from_iata) & (stations_df['DAYS_NUM'] == std_local.day_of_year)]
+        from_timediff = from_timediff_df.get('timediff_minutes').iloc[0]
+        std_utc = std_local - timedelta(minutes=int(from_timediff) if from_timediff is not None else 0)
+        combined_df['FROM_TIMEDIFF'] = int(from_timediff) if from_timediff is not None else 0
         combined_df['STD_UTC'] = std_utc
         acars_callsign = combined_df.get('CALL_SIGN').iloc[0].replace('TAP', 'TP')
         combined_df['ACARS_CALLSIGN'] = acars_callsign
+        sta_local = parse_dt(combined_df.get('STA').iloc[0])
+        to_iata = combined_df.get('TO_IATA').iloc[0]
+        to_timediff_df = stations_df[(stations_df['STATION'] == to_iata) & (stations_df['DAYS_NUM'] == sta_local.day_of_year)]
+        to_timediff = to_timediff_df.get('timediff_minutes').iloc[0]
+        combined_df['TO_TIMEDIFF'] = int(to_timediff) if to_timediff is not None else 0
+        
         
         # Join flight plans on CALL_SIGN and STD
         if not flight_plans_df.empty:

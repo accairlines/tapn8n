@@ -138,7 +138,8 @@ def calculate_planned_actual_times(flight_row):
     mvt = parse_dt(flight_row.get('MVT'))
     ata = parse_dt(flight_row.get('ATA'))
     onblock = parse_dt(flight_row.get('ONBLOCK'))
-    eta = parse_dt(flight_row.get('ETA'))
+    from_timediff = flight_row.get('FROM_TIMEDIFF')
+    to_timediff = flight_row.get('TO_TIMEDIFF')
     
     # Calculate planned times (in seconds)
     planned_taxi_out = flight_row.get('TAXI_OUT_TIME').total_seconds() / 60 if flight_row.get('TAXI_OUT_TIME') is not None else 0
@@ -148,15 +149,15 @@ def calculate_planned_actual_times(flight_row):
 
     # Calculate actual times (in minutes)
     actual_taxi_out = (mvt - offblock).total_seconds() / 60 if pd.notnull(mvt) and pd.notnull(offblock) else None
-    actual_airborne = (ata - mvt).total_seconds() / 60 if pd.notnull(ata) and pd.notnull(mvt) else None
+    actual_airborne = ((ata - mvt).total_seconds() - (to_timediff * 60)  + (from_timediff * 60)) / 60 if pd.notnull(ata) and pd.notnull(mvt) else None
     actual_taxi_in = (onblock - ata).total_seconds() / 60 if pd.notnull(onblock) and pd.notnull(ata) else None
-    
+        
     # Calculate totals
     actual_total_time = actual_taxi_out + actual_airborne + actual_taxi_in if actual_taxi_out is not None and actual_airborne is not None and actual_taxi_in is not None else None
     planned_total_time = planned_taxi_out + planned_airborne + planned_taxi_in
     
     # AET: ATA - MVT (in minutes)
-    aet = (ata - mvt).total_seconds() / 60 if pd.notnull(ata) and pd.notnull(mvt) else None
+    aet = actual_total_time
     # EET: planned total time (in minutes)
     eet = planned_total_time
     # Delta: AET - EET (in minutes)
