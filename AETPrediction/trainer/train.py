@@ -677,7 +677,10 @@ def main():
         logging.info("=== Extracting Targets and Features Completed ===")
         
         # Append new data to cached data if it exists
-        if cached_features is not None and cached_targets is not None:
+        if len(new_features) == 0:
+            logging.info("Nothing to process as features are empty")
+            return 0
+        elif cached_features is not None and cached_targets is not None:
             logging.info("Appending new data to existing cached data...")
             features = pd.concat([cached_features, new_features], ignore_index=True)
             targets = pd.concat([cached_targets, new_targets], ignore_index=True)
