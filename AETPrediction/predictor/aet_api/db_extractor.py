@@ -79,19 +79,24 @@ class DatabaseExtractor:
                 logger.warning("No flight data found for the given criteria")
                 return pd.DataFrame()
             
+            stations_df = self._extract_stations_table(stationFrom=stationFrom, stationTo=stationTo)
+            
+            callsign = flights_df['CALL_SIGN'].iloc[0].replace('TAP', 'TP') if not flights_df.empty and 'CALL_SIGN' in flights_df.columns else None
+            std = flights_df['STD'].iloc[0] if not flights_df.empty and 'STD' in flights_df.columns else None
+            timediff_df = stations_df[(stations_df['STATION'] == stationFrom) & (stations_df['DAYS_NUM'] == std.day_of_year)]['timediff_minutes'].iloc[0] if not stations_df.empty and 'timediff_minutes' in stations_df.columns else None
+            std_utc = std - timedelta(minutes=int(timediff_df) if timediff_df is not None else 0)
+            
             # Extract data from all tables
             callsign = flights_df['CALL_SIGN'].iloc[0] if not flights_df.empty else None
-            flight_plans_df = self._extract_flight_plans_table(start_date, end_date, callsign=callsign)
+            flight_plans_df = self._extract_flight_plans_table(std_utc.replace(hour=0, minute=0, second=0, microsecond=0), 
+                                                               std_utc.replace(hour=0, minute=0, second=0, microsecond=0), 
+                                                               callsign=callsign)
             
             flt_file_name = flight_plans_df['FLP_FILE_NAME'].iloc[0] if not flight_plans_df.empty else None
             waypoints_df = self._extract_waypoints_table(start_date, end_date, flt_file_name=flt_file_name)
             mel_df = self._extract_mel_table(start_date, end_date, flt_file_name=flt_file_name)
             
-            stations_df = self._extract_stations_table(stationFrom=stationFrom, stationTo=stationTo)
             
-            callsign = flights_df['CALL_SIGN'].iloc[0].replace('TAP', 'TP') if not flights_df.empty and 'CALL_SIGN' in flights_df.columns else None
-            std = flights_df['STD'].iloc[0] if not flights_df.empty and 'STD' in flights_df.columns else None
-            std_utc = std - pd.to_timedelta(stations_df['timediff_minutes'].iloc[0], unit='m') if not stations_df.empty and 'timediff_minutes' in stations_df.columns else None
             acars_df = self._extract_acars_table(start_date, end_date, callsign=callsign, std_utc=std_utc)
             equipments_df = self._extract_equipments_table()
             aircrafts_df = self._extract_aircrafts_table()
