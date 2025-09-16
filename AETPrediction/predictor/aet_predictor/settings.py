@@ -117,12 +117,7 @@ LOGGING = {
         },
     },
     'loggers': {
-        'django': {  # You can add more loggers here if needed
-            'handlers': ['console'],
-            'level': 'DEBUG',  # Adjust the level here if needed
-            'propagate': False,
-        },
-        'hubtm': {
+        'predictor': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',  # Adjust the level here if needed
             'propagate': False,
@@ -130,7 +125,7 @@ LOGGING = {
     },
     'root': {  # Catch-all logger
         'handlers': ['console','file'],
-        'level': 'INFO',  # Adjust the level here if needed
+        'level': 'DEBUG',  # Adjust the level here if needed
     },
 }
 
