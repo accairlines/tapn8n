@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # upgrade pip/setuptools/wheel so PEP 517 builds (if any) work smoothly
 RUN pip install --upgrade pip setuptools wheel
 
+RUN pip install gunicorn==23.0.0
+
 # Copy requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
