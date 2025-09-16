@@ -59,7 +59,6 @@ class DatabaseExtractor:
             pandas.DataFrame: Processed data ready for XGBoost model
         """
         try:
-            half_way = datetime.now()
             if flight_id:
                 logger.debug(f"Extracting data for specific flight ID: {flight_id}")
                 # Extract data for specific flight
@@ -84,9 +83,6 @@ class DatabaseExtractor:
                 logger.debug(f"Extracting flight data from {start_date} to {end_date}")
                 flights_df = self._extract_flights_table(start_date, end_date)
             
-            partial = (datetime.now() - half_way).total_seconds()
-            logger.info(f"Prediction for flight {flight_id}: Flights {len(flights_df)}, processing time: {partial}")
-            
             # Check if we have any flight data
             if flights_df.empty:
                 logger.warning("No flight data found for the given criteria")
@@ -99,35 +95,18 @@ class DatabaseExtractor:
             timediff_df = stations_df[(stations_df['STATION'] == stationFrom) & (stations_df['DAYS_NUM'] == std.day_of_year)]['timediff_minutes'].iloc[0] if not stations_df.empty and 'timediff_minutes' in stations_df.columns else None
             std_utc = std - timedelta(minutes=int(timediff_df) if timediff_df is not None else 0)
             
-            half_way = datetime.now()
             # Extract data from all tables
             callsign = flights_df['CALL_SIGN'].iloc[0] if not flights_df.empty else None
             flight_plans_df = self._extract_flight_plans_table(std_utc.replace(hour=0, minute=0, second=0, microsecond=0), 
                                                                std_utc.replace(hour=0, minute=0, second=0, microsecond=0), 
                                                                callsign=callsign)
             
-            partial = (datetime.now() - half_way).total_seconds()
-            logger.info(f"Prediction for flight {flight_id}: FP {len(flight_plans_df)}, processing time: {partial}")
-            
             flt_file_name = flight_plans_df['FLP_FILE_NAME'].iloc[0] if not flight_plans_df.empty else None
-            half_way = datetime.now()
             waypoints_df = self._extract_waypoints_table(start_date, end_date, flt_file_name=flt_file_name)
-            
-            partial = (datetime.now() - half_way).total_seconds()
-            logger.info(f"Prediction for flight {flight_id}: WP {len(waypoints_df)}, processing time: {partial}")
-            
-            half_way = datetime.now()
             mel_df = self._extract_mel_table(start_date, end_date, flt_file_name=flt_file_name)
             
-            partial = (datetime.now() - half_way).total_seconds()
-            logger.info(f"Prediction for flight {flight_id}: MEL {len(mel_df)}, processing time: {partial}")
             
-            half_way = datetime.now()
             acars_df = self._extract_acars_table(start_date, end_date, callsign=callsign, std_utc=std_utc)
-            
-            partial = (datetime.now() - half_way).total_seconds()
-            logger.info(f"Prediction for flight {flight_id}: ACARS {len(acars_df)}, processing time: {partial}")
-            
             equipments_df = self._extract_equipments_table()
             aircrafts_df = self._extract_aircrafts_table()
             
