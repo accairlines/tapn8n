@@ -323,6 +323,8 @@ class DatabaseExtractor:
                 how='left',
                 suffixes=('', '_fp')
             )
+        else:
+            combined_df['fp_FLP_FILE_NAME'] = -1
         
         # Join aircraft equipment data
         if not aircrafts_df.empty and not equipments_df.empty:
