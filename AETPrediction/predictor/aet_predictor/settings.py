@@ -99,8 +99,11 @@ LOGGING = {
     'handlers': {
         'file': {
             'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': os.getenv("LOG_PATH", '../logs/django.log'),
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename':  os.getenv('LOGGER_FILE'),
+            'maxBytes': 1024*1024*5,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
         },
         'console': {
             'level': 'DEBUG',
