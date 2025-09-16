@@ -34,7 +34,9 @@ def predict_flight(request, flight_id):
         half_way = datetime.now()
         # Get flight data from database
         flight_data = get_flight_data(flight_id)
-        logger.info(f"Prediction for flight {flight_id}: Flight data: {len(flight_data)}, processing time: {datetime.now() - half_way}")
+        partial = (datetime.now() - half_way).total_seconds()
+        total = partial
+        logger.info(f"Prediction for flight {flight_id}: Flight data: {len(flight_data)}, processing time: {partial} {total}")
         
         if flight_data is None:
             return JsonResponse({
@@ -45,11 +47,15 @@ def predict_flight(request, flight_id):
         # Make prediction
         half_way = datetime.now()
         prediction = model_loader.predict(flight_data)
-        logger.info(f"Prediction for flight {flight_id}: Prediction: {len(prediction)}, processing time: {datetime.now() - half_way}")
+        partial = (datetime.now() - half_way).total_seconds()
+        total += partial
+        logger.info(f"Prediction for flight {flight_id}: Prediction: {len(prediction)}, processing time: {partial} {total}")
         
         half_way = datetime.now()
         hist_aeteet = get_flight_hist_aeteet(flight_id)
-        logger.info(f"Prediction for flight {flight_id}: Hist: {len(hist_aeteet)}, processing time: {datetime.now() - half_way}")
+        partial = (datetime.now() - half_way).total_seconds()
+        total += partial
+        logger.info(f"Prediction for flight {flight_id}: Hist: {len(hist_aeteet)}, processing time: {partial} {total}")
         
         end_time = datetime.now()
         
