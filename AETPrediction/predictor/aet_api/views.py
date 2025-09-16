@@ -150,6 +150,11 @@ def calculate_planned_actual_times(flight_row):
             return pd.to_datetime(val, errors='coerce')
         except Exception:
             return pd.NaT
+    
+    # Helper to convert time string to seconds
+    def parse_time_to_seconds(t):
+        total_seconds = t.hour * 3600 + t.minute * 60 + t.second + t.microsecond / 1e6
+        return total_seconds
 
     # Parse all relevant datetimes
     offblock = parse_dt(flight_row.get('OFFBLOCK'))
@@ -160,10 +165,10 @@ def calculate_planned_actual_times(flight_row):
     to_timediff = flight_row.get('TO_TIMEDIFF')
     
     # Calculate planned times (in seconds)
-    planned_taxi_out = flight_row.get('TAXI_OUT_TIME').total_seconds() / 60 if flight_row.get('TAXI_OUT_TIME') is not None else 0
+    planned_taxi_out = parse_time_to_seconds(flight_row.get('TAXI_OUT_TIME')) / 60 if flight_row.get('TAXI_OUT_TIME') is not None else 0
     flight_time = flight_row.get('FLIGHT_TIME') or flight_row.get('TRIP_DURATION')
-    planned_airborne = flight_time.total_seconds() / 60 if flight_time is not None else 0
-    planned_taxi_in = flight_row.get('TAXI_IN_TIME').total_seconds() / 60 if flight_row.get('TAXI_IN_TIME') is not None else 0
+    planned_airborne = parse_time_to_seconds(flight_time) / 60 if flight_time is not None else 0
+    planned_taxi_in = parse_time_to_seconds(flight_row.get('TAXI_IN_TIME')) / 60 if flight_row.get('TAXI_IN_TIME') is not None else 0
 
     # Calculate actual times (in minutes)
     actual_taxi_out = (mvt - offblock).total_seconds() / 60 if pd.notnull(mvt) and pd.notnull(offblock) else None
