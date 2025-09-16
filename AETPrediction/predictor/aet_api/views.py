@@ -20,6 +20,7 @@ model_loader = ModelLoader(settings.MODEL_PATH)
 @csrf_exempt
 def predict_flight(request, flight_id):
     """Predict AET for a specific flight"""
+    start_time = datetime.now()
     try:
         # Validate flight_id
         if not flight_id or (isinstance(flight_id, str) and not flight_id.strip()):
@@ -41,11 +42,13 @@ def predict_flight(request, flight_id):
         logger.info(f"Flight data details: {json.dumps(flight_data, default=str)}")
         # Make prediction
         prediction = model_loader.predict(flight_data)
-        
+                
         hist_aeteet = get_flight_hist_aeteet(flight_id)
         
+        end_time = datetime.now()
+        
         # Format response
-        response = format_prediction_response(flight_id, prediction, flight_data, hist_aeteet)
+        response = format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, (end_time - start_time).total_seconds())
         
         return JsonResponse(response)
         
@@ -83,7 +86,7 @@ def get_flight_data(flight_id):
     except Exception as e:
         raise e
 
-def format_prediction_response(flight_id, prediction, flight_data, hist_aeteet):
+def format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, processing_time):
     """Format prediction into API response"""
     # Convert predictions from minutes to HH:MM:SS format
     def minutes_to_time(minutes):
@@ -104,7 +107,7 @@ def format_prediction_response(flight_id, prediction, flight_data, hist_aeteet):
             'predict': str(prediction)
         }
     
-    logger.info(f"Prediction output structure for flight {flight_id}: {str(prediction)}")
+    logger.info(f"Prediction output structure for flight {flight_id}: {str(prediction)}, processing time: {processing_time}")
         
     return {
         'flight_id': flight_id,
