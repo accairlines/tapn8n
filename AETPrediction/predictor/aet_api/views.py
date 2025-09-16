@@ -6,16 +6,16 @@ from datetime import datetime, timedelta
 import json
 import logging
 from .model_loader import ModelLoader
-from .db_extractor import get_flight_data_for_prediction 
-from .db_extractor import get_flight_hist_aeteet
+from .db_extractor import DatabaseExtractor, get_flight_hist_aeteet
 from django.conf import settings
 import pandas as pd
 import traceback
 
 logger = logging.getLogger(__name__)
 
-# Initialize model loader
+# Initialize model loader and database extractor (singleton pattern)
 model_loader = ModelLoader(settings.MODEL_PATH)
+db_extractor = DatabaseExtractor()
 
 @csrf_exempt
 def predict_flight(request, flight_id):
@@ -31,7 +31,7 @@ def predict_flight(request, flight_id):
         # Convert to string and strip whitespace
         flight_id = str(flight_id).strip()
         
-        # Get flight data from database
+        # Get flight data from database using singleton extractor
         flight_data = get_flight_data(flight_id)
         
         if flight_data is None:
@@ -43,12 +43,17 @@ def predict_flight(request, flight_id):
         # Make prediction
         prediction = model_loader.predict(flight_data)
                 
-        hist_aeteet = get_flight_hist_aeteet(flight_id)
+        hist_aeteet = db_extractor.extract_flight_hist_aeteet(flight_id)
         
         end_time = datetime.now()
         
         # Format response
         response = format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, (end_time - start_time).total_seconds())
+        
+        # Clean up memory
+        del flight_data, hist_aeteet, prediction
+        import gc
+        gc.collect()
         
         return JsonResponse(response)
         
@@ -67,7 +72,7 @@ def get_flight_data(flight_id):
         # Set start date to current UTC time
         start_date = (timezone.now() - timedelta(days=1)).strftime('%Y-%m-%d')
         end_date = (timezone.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-        flight_df = get_flight_data_for_prediction(start_date=start_date, end_date=end_date, days_back=None, flight_id=flight_id)
+        flight_df = db_extractor.extract_flight_data(start_date=start_date, end_date=end_date, days_back=None, flight_id=flight_id)
         
         # Check if we got any data
         if flight_df.empty:

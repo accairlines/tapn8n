@@ -34,7 +34,16 @@ class DatabaseExtractor:
             ssl_params['ssl_verify_cert'] = True
             ssl_params['ssl_verify_identity'] = True
         
-        self.engine = create_engine(connection_string, connect_args=ssl_params)
+        # Add connection pooling for better performance
+        self.engine = create_engine(
+            connection_string, 
+            connect_args=ssl_params,
+            pool_size=10,  # Number of connections to maintain in pool
+            max_overflow=20,  # Additional connections beyond pool_size
+            pool_pre_ping=True,  # Verify connections before use
+            pool_recycle=3600,  # Recycle connections after 1 hour
+            echo=False  # Set to True for SQL debugging
+        )
         
     def extract_flight_data(self, start_date=None, end_date=None, days_back=2, flight_id=None):
         """
@@ -113,6 +122,10 @@ class DatabaseExtractor:
         except Exception as e:
             logger.error(f"Error extracting flight data: {str(e)}")
             raise
+        finally:
+            # Force garbage collection to free memory
+            import gc
+            gc.collect()
     
     def extract_flight_hist_aeteet(self, flight_id):
         """Extract data from ACARS table"""
@@ -125,6 +138,12 @@ class DatabaseExtractor:
         params = [flight_id]
         logger.debug(f"Looking for flight with ID: {flight_id} (type: {type(flight_id)})")
         return pd.read_sql(query, self.engine, params=tuple(params))
+    
+    def close_connections(self):
+        """Close all database connections"""
+        if hasattr(self, 'engine') and self.engine:
+            self.engine.dispose()
+            logger.info("Database connections closed")
     
     
     def _extract_single_flight(self, flight_id):
