@@ -22,4 +22,4 @@ RUN mkdir -p /app/logs
 EXPOSE 8000
 
 # Run Django server
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"] 
+CMD ["gunicorn", "--workers=2", "--threads=8", "--timeout=60", "--keep-alive=5", "--bind=0.0.0.0:8000", "aet_predictor.wsgi:application"]
