@@ -59,6 +59,7 @@ class DatabaseExtractor:
             pandas.DataFrame: Processed data ready for XGBoost model
         """
         try:
+            parcial_start = datetime.now()
             if flight_id:
                 logger.debug(f"Extracting data for specific flight ID: {flight_id}")
                 # Extract data for specific flight
@@ -82,15 +83,21 @@ class DatabaseExtractor:
                 
                 logger.debug(f"Extracting flight data from {start_date} to {end_date}")
                 flights_df = self._extract_flights_table(start_date, end_date)
+            parcial_end = datetime.now()
+            logger.debug(f"Extracting data for flightid: {flight_id} flight data: {len(flights_df)}, processing time: {parcial_end - parcial_start}")
             
             # Check if we have any flight data
             if flights_df.empty:
                 logger.warning("No flight data found for the given criteria")
                 return pd.DataFrame()
             
+            parcial_start = datetime.now()
             stations_df = self._extract_stations_table(stationFrom=stationFrom, stationTo=stationTo)
+            parcial_end = datetime.now()
+            logger.debug(f"Extracting data for flightid: {flight_id} stations data: {len(stations_df)}, processing time: {parcial_end - parcial_start}")
             
             callsign = flights_df['CALL_SIGN'].iloc[0].replace('TAP', 'TP') if not flights_df.empty and 'CALL_SIGN' in flights_df.columns else None
+            parcial_start = datetime.now()
             std = flights_df['STD'].iloc[0] if not flights_df.empty and 'STD' in flights_df.columns else None
             timediff_df = stations_df[(stations_df['STATION'] == stationFrom) & (stations_df['DAYS_NUM'] == std.day_of_year)]['timediff_minutes'].iloc[0] if not stations_df.empty and 'timediff_minutes' in stations_df.columns else None
             std_utc = std - timedelta(minutes=int(timediff_df) if timediff_df is not None else 0)
@@ -100,22 +107,37 @@ class DatabaseExtractor:
             flight_plans_df = self._extract_flight_plans_table(std_utc.replace(hour=0, minute=0, second=0, microsecond=0), 
                                                                std_utc.replace(hour=0, minute=0, second=0, microsecond=0), 
                                                                callsign=callsign)
+            parcial_end = datetime.now()
+            logger.debug(f"Extracting data for flightid: {flight_id} flight plans data: {len(flight_plans_df)}, processing time: {parcial_end - parcial_start}")
             
             flt_file_name = flight_plans_df['FLP_FILE_NAME'].iloc[0] if not flight_plans_df.empty else None
+            parcial_start = datetime.now()
             waypoints_df = self._extract_waypoints_table(start_date, end_date, flt_file_name=flt_file_name)
+            parcial_end = datetime.now()
+            logger.debug(f"Extracting data for flightid: {flight_id} waypoints data: {len(waypoints_df)}, processing time: {parcial_end - parcial_start}")
+            
+            parcial_start = datetime.now()
             mel_df = self._extract_mel_table(start_date, end_date, flt_file_name=flt_file_name)
+            parcial_end = datetime.now()
+            logger.debug(f"Extracting data for flightid: {flight_id} mel data: {len(mel_df)}, processing time: {parcial_end - parcial_start}")
             
-            
+            parcial_start = datetime.now()
             acars_df = self._extract_acars_table(start_date, end_date, callsign=callsign, std_utc=std_utc)
+            parcial_end = datetime.now()
+            logger.debug(f"Extracting data for flightid: {flight_id} acars data: {len(acars_df)}, processing time: {parcial_end - parcial_start}")
+            
             equipments_df = self._extract_equipments_table()
             aircrafts_df = self._extract_aircrafts_table()
             
+            parcial_start = datetime.now()
             # Join all data together
             combined_df = self._join_all_data(
                 flights_df, flight_plans_df, waypoints_df, mel_df, 
                 acars_df, equipments_df, aircrafts_df, stations_df
             )
-                
+            parcial_end = datetime.now()
+            logger.debug(f"Joining all data for flightid: {flight_id} combined data: {len(combined_df)}, processing time: {parcial_end - parcial_start}")
+            
             logger.debug(f"Successfully extracted {len(combined_df)} records with {len(combined_df.columns)} features")
             return combined_df
             

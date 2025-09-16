@@ -42,7 +42,6 @@ def predict_flight(request, flight_id):
                 'error': 'Flight not found'
             }, status=404)
         
-        logger.debug(f"Flight data details: {json.dumps(flight_data, default=str)}")
         # Make prediction
         parcial_start = datetime.now()
         prediction = model_loader.predict(flight_data)
