@@ -107,7 +107,7 @@ class DatabaseExtractor:
                 acars_df, equipments_df, aircrafts_df, stations_df
             )
                 
-            logger.info(f"Successfully extracted {len(combined_df)} records with {len(combined_df.columns)} features")
+            logger.debug(f"Successfully extracted {len(combined_df)} records with {len(combined_df.columns)} features")
             return combined_df
             
         except Exception as e:
@@ -123,13 +123,13 @@ class DatabaseExtractor:
         WHERE f.ID = %s"""
         
         params = [flight_id]
-        logger.info(f"Looking for flight with ID: {flight_id} (type: {type(flight_id)})")
+        logger.debug(f"Looking for flight with ID: {flight_id} (type: {type(flight_id)})")
         return pd.read_sql(query, self.engine, params=tuple(params))
     
     
     def _extract_single_flight(self, flight_id):
         """Extract data for a specific flight by ID"""
-        logger.info(f"Looking for flight with ID: {flight_id} (type: {type(flight_id)})")
+        logger.debug(f"Looking for flight with ID: {flight_id} (type: {type(flight_id)})")
         query = """
         SELECT ID,OPERATOR,FLT_NR,AC_REGISTRATION,FROM_IATA,TO_IATA,DIV_IATA,STD,ETD,ATD,STA,ETA,ATA,ONBLOCK,
                FROM_TERMINAL,FROM_GATE,FROM_STAND,TO_TERMINAL,TO_STAND,TO_BELT,DOOROPEN,DOORCLOSED,HULLOPEN,HULLCLOSED,
