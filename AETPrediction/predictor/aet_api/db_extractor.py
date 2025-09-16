@@ -332,8 +332,16 @@ class DatabaseExtractor:
                 how='left',
                 suffixes=('', '_fp')
             )
-        else:
-            combined_df['fp_FLP_FILE_NAME'] = -1
+
+            # Process waypoints data - create wp1_ to wp50_ features
+            if not waypoints_df.empty:
+                waypoint_features = self._process_waypoints_data(waypoints_df)
+                combined_df = combined_df.merge(
+                    waypoint_features, 
+                    left_on='fp_FLP_FILE_NAME', 
+                    right_on='FLP_FILE_NAME', 
+                    how='left'
+                )
         
         # Join aircraft equipment data
         if not aircrafts_df.empty and not equipments_df.empty:
@@ -355,16 +363,6 @@ class DatabaseExtractor:
                 aircraft_equipment_renamed, 
                 left_on='AC_REGISTRATION', 
                 right_on='ACREGISTRATION', 
-                how='left'
-            )
-        
-        # Process waypoints data - create wp1_ to wp50_ features
-        if not waypoints_df.empty:
-            waypoint_features = self._process_waypoints_data(waypoints_df)
-            combined_df = combined_df.merge(
-                waypoint_features, 
-                left_on='fp_FLP_FILE_NAME', 
-                right_on='FLP_FILE_NAME', 
                 how='left'
             )
         
