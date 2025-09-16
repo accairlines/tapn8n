@@ -71,6 +71,10 @@ def predict_flight(request, flight_id):
             'error': 'Prediction failed',
             'message': str(e)
         }, status=500)
+    finally:
+        flight_data = None
+        prediction = None
+        hist_aeteet = None
 
 def get_flight_data(flight_id):
     """Get flight data for prediction - returns dictionary format expected by model"""

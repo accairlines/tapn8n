@@ -122,10 +122,6 @@ class DatabaseExtractor:
         except Exception as e:
             logger.error(f"Error extracting flight data: {str(e)}")
             raise
-        finally:
-            # Force garbage collection to free memory
-            import gc
-            gc.collect()
     
     def extract_flight_hist_aeteet(self, flight_id):
         """Extract data from ACARS table"""
@@ -138,13 +134,7 @@ class DatabaseExtractor:
         params = [flight_id]
         logger.debug(f"Looking for flight with ID: {flight_id} (type: {type(flight_id)})")
         return pd.read_sql(query, self.engine, params=tuple(params))
-    
-    def close_connections(self):
-        """Close all database connections"""
-        if hasattr(self, 'engine') and self.engine:
-            self.engine.dispose()
-            logger.info("Database connections closed")
-    
+        
     
     def _extract_single_flight(self, flight_id):
         """Extract data for a specific flight by ID"""
