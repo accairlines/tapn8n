@@ -51,7 +51,7 @@ class DatabaseExtractor:
         """
         try:
             if flight_id:
-                logger.info(f"Extracting data for specific flight ID: {flight_id}")
+                logger.debug(f"Extracting data for specific flight ID: {flight_id}")
                 # Extract data for specific flight
                 flights_df = self._extract_single_flight(flight_id)
                 if flights_df.empty:
@@ -71,7 +71,7 @@ class DatabaseExtractor:
                 if not start_date:
                     start_date = (datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')
                 
-                logger.info(f"Extracting flight data from {start_date} to {end_date}")
+                logger.debug(f"Extracting flight data from {start_date} to {end_date}")
                 flights_df = self._extract_flights_table(start_date, end_date)
             
             # Check if we have any flight data
@@ -139,7 +139,7 @@ class DatabaseExtractor:
         WHERE ID = %s
         """
         result = pd.read_sql(query, self.engine, params=(flight_id,))
-        logger.info(f"Found {len(result)} records for flight ID {flight_id}")
+        logger.debug(f"Found {len(result)} records for flight ID {flight_id}")
         return result
     
     def _extract_flights_table(self, start_date, end_date):

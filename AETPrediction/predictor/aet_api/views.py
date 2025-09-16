@@ -63,7 +63,7 @@ def predict_flight(request, flight_id):
 def get_flight_data(flight_id):
     """Get flight data for prediction - returns dictionary format expected by model"""
     try:
-        logger.info(f"Getting flight data for ID: {flight_id} (type: {type(flight_id)})")
+        logger.debug(f"Getting flight data for ID: {flight_id} (type: {type(flight_id)})")
         # Set start date to current UTC time
         start_date = (timezone.now() - timedelta(days=1)).strftime('%Y-%m-%d')
         end_date = (timezone.now() + timedelta(days=1)).strftime('%Y-%m-%d')
