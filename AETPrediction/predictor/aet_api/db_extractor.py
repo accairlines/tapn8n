@@ -1,15 +1,13 @@
 """
 Database extraction module for AET prediction
-Connects to Django database and extracts data for model training/prediction
+Uses Django database connection to extract data for model training/prediction
 """
 
 import pandas as pd
 import numpy as np
-from django.conf import settings
-from django.db import connections
+from django.db import connection
 from datetime import datetime, timedelta
 import logging
-from sqlalchemy import create_engine
 
 logger = logging.getLogger(__name__)
 
@@ -17,33 +15,25 @@ class DatabaseExtractor:
     """Extract and process data from the database for AET prediction"""
     
     def __init__(self):
-        self.engine = connections['default']
-        # Create SQLAlchemy engine from Django database settings
-        db_config = settings.DATABASES['default']
+        # Use Django's database connection instead of creating our own
+        self.connection = connection
+    
+    def _execute_query(self, query, params=None):
+        """
+        Execute a SQL query using Django's database connection and return a pandas DataFrame
         
-        # Build connection string with SSL parameters
-        connection_string = f"mysql+pymysql://{db_config['USER']}:{db_config['PASSWORD']}@{db_config['HOST']}:{db_config['PORT']}/{db_config['NAME']}"
-        
-        # Add SSL parameters if they exist in Django settings
-        ssl_params = {}
-        if 'OPTIONS' in db_config and 'ssl' in db_config['OPTIONS']:
-            ssl_config = db_config['OPTIONS']['ssl']
-            if 'ca' in ssl_config and ssl_config['ca']:
-                ssl_params['ssl_ca'] = ssl_config['ca']
-            # Add other SSL parameters as needed
-            ssl_params['ssl_verify_cert'] = True
-            ssl_params['ssl_verify_identity'] = True
-        
-        # Add connection pooling for better performance
-        self.engine = create_engine(
-            connection_string, 
-            connect_args=ssl_params,
-            pool_size=10,  # Number of connections to maintain in pool
-            max_overflow=20,  # Additional connections beyond pool_size
-            pool_pre_ping=True,  # Verify connections before use
-            pool_recycle=3600,  # Recycle connections after 1 hour
-            echo=False  # Set to True for SQL debugging
-        )
+        Args:
+            query: SQL query string
+            params: Query parameters tuple or list
+            
+        Returns:
+            pandas.DataFrame: Query results as DataFrame
+        """
+        with self.connection.cursor() as cursor:
+            cursor.execute(query, params or [])
+            columns = [col[0] for col in cursor.description]
+            rows = cursor.fetchall()
+            return pd.DataFrame(rows, columns=columns)
         
     def extract_flight_data(self, start_date=None, end_date=None, days_back=2, flight_id=None):
         """
@@ -155,7 +145,7 @@ class DatabaseExtractor:
         
         params = [flight_id]
         logger.debug(f"Looking for flight with ID: {flight_id} (type: {type(flight_id)})")
-        return pd.read_sql(query, self.engine, params=tuple(params))
+        return self._execute_query(query, params)
         
     
     def _extract_single_flight(self, flight_id):
@@ -169,7 +159,7 @@ class DatabaseExtractor:
         FROM osusr_uuk_flt_info
         WHERE ID = %s
         """
-        result = pd.read_sql(query, self.engine, params=(flight_id,))
+        result = self._execute_query(query, [flight_id])
         logger.debug(f"Found {len(result)} records for flight ID {flight_id}")
         return result
     
@@ -183,7 +173,7 @@ class DatabaseExtractor:
         FROM osusr_uuk_flt_info
         WHERE STD BETWEEN %s AND %s
         """
-        return pd.read_sql(query, self.engine, params=(start_date, end_date))
+        return self._execute_query(query, [start_date, end_date])
     
     def _extract_flight_plans_table(self, start_date, end_date, callsign=None):
         """Extract data from flight plans table"""
@@ -211,7 +201,7 @@ class DatabaseExtractor:
         if callsign is not None:
             params.append(callsign)
             
-        return pd.read_sql(query, self.engine, params=tuple(params))
+        return self._execute_query(query, params)
     
     def _extract_waypoints_table(self, start_date, end_date, flt_file_name=None):
         """Extract data from waypoints table"""
@@ -233,7 +223,7 @@ class DatabaseExtractor:
         if flt_file_name is not None:
             params.append(flt_file_name)
             
-        return pd.read_sql(query, self.engine, params=tuple(params))
+        return self._execute_query(query, params)
     
     def _extract_mel_table(self, start_date, end_date, flt_file_name=None):
         """Extract data from MEL table"""
@@ -250,7 +240,7 @@ class DatabaseExtractor:
         if flt_file_name is not None:
             params.append(flt_file_name)
             
-        return pd.read_sql(query, self.engine, params=tuple(params))
+        return self._execute_query(query, params)
     
     def _extract_acars_table(self, start_date, end_date, callsign=None, std_utc=None):
         """Extract data from ACARS table"""
@@ -273,17 +263,17 @@ class DatabaseExtractor:
             params.append(std_utc)
             params.append(std_utc_end)
             
-        return pd.read_sql(query, self.engine, params=tuple(params))
+        return self._execute_query(query, params)
     
     def _extract_equipments_table(self):
         """Extract data from equipments table"""
         query = "SELECT ID, BODYTYPE, EQUIPTYPE, EQUIPTYPE2 FROM osusr_uuk_equiptype"
-        return pd.read_sql(query, self.engine)
+        return self._execute_query(query)
     
     def _extract_aircrafts_table(self):
         """Extract data from aircrafts table"""
         query = "SELECT ACREGISTRATION, EQUIPTYPEID FROM osusr_uuk_registrations"
-        return pd.read_sql(query, self.engine)
+        return self._execute_query(query)
     
     def _extract_stations_table(self, stationFrom=None, stationTo=None):
         """Extract data from stations table"""
@@ -296,7 +286,7 @@ class DatabaseExtractor:
             params.append(stationFrom)
         if stationTo is not None:
             params.append(stationTo)
-        return pd.read_sql(query, self.engine, params=tuple(params))
+        return self._execute_query(query, params)
     
     
     def _join_all_data(self, flights_df, flight_plans_df, waypoints_df, mel_df, 
@@ -419,7 +409,7 @@ class DatabaseExtractor:
     
     def _process_acars_data(self, acars_df):
         """Process ACARS data to create acars1_ to acars20_ features"""
-        acars_cols = ['FLIGHT''WINDDIRECTION', 'WINDSPEED']
+        acars_cols = ['FLIGHT', 'WINDDIRECTION', 'WINDSPEED']
         
         # Create all columns at once to avoid fragmentation
         feature_data = {}
