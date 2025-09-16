@@ -32,7 +32,10 @@ def predict_flight(request, flight_id):
         flight_id = str(flight_id).strip()
         
         # Get flight data from database
+        parcial_start = datetime.now()
         flight_data = get_flight_data(flight_id)
+        parcial_end = datetime.now()
+        logger.debug(f"Prediction for flight {flight_id}: Flight data: {len(flight_data)}, processing time: {parcial_end - parcial_start}")
         
         if flight_data is None:
             return JsonResponse({
@@ -41,9 +44,15 @@ def predict_flight(request, flight_id):
         
         logger.debug(f"Flight data details: {json.dumps(flight_data, default=str)}")
         # Make prediction
+        parcial_start = datetime.now()
         prediction = model_loader.predict(flight_data)
+        parcial_end = datetime.now()
+        logger.debug(f"Prediction for flight {flight_id}: Prediction: {len(prediction)}, processing time: {parcial_end - parcial_start}")
         
+        parcial_start = datetime.now()
         hist_aeteet = get_flight_hist_aeteet(flight_id)
+        parcial_end = datetime.now()
+        logger.debug(f"Prediction for flight {flight_id}: Hist: {len(hist_aeteet)}, processing time: {parcial_end - parcial_start}")
         
         end_time = datetime.now()
         
