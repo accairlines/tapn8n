@@ -102,22 +102,35 @@ LOGGING = {
         },
     },
     'handlers': {
+        'console': {
+            'level': 'ERROR',  # Adjust the level here if needed
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
         'file': {
-            'level': 'DEBUG',
+            'level': 'DEBUG',  # Only errors and above will be logged to the file
             'class': 'logging.handlers.RotatingFileHandler',
             'filename':  os.getenv('LOGGER_FILE'),
             'maxBytes': 1024*1024*5,  # 5 MB
-            'backupCount': 10,
+            'backupCount': 5,
             'formatter': 'verbose',
         },
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
+    },
+    'loggers': {
+        'django': {  # You can add more loggers here if needed
+            'handlers': ['console'],
+            'level': 'DEBUG',  # Adjust the level here if needed
+            'propagate': False,
+        },
+        'hubtm': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',  # Adjust the level here if needed
+            'propagate': False,
         },
     },
-    'root': {
-        'handlers': ['console', 'file'],
-        'level': 'INFO',
+    'root': {  # Catch-all logger
+        'handlers': ['console','file'],
+        'level': 'INFO',  # Adjust the level here if needed
     },
 }
 
