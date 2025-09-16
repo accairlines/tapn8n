@@ -103,12 +103,12 @@ LOGGING = {
     },
     'handlers': {
         'console': {
-            'level': 'ERROR',  # Adjust the level here if needed
+            'level': 'INFO',  # Adjust the level here if needed
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
         'file': {
-            'level': 'DEBUG',  # Only errors and above will be logged to the file
+            'level': 'INFO',  # Only errors and above will be logged to the file
             'class': 'logging.handlers.RotatingFileHandler',
             'filename':  os.getenv('LOGGER_FILE'),
             'maxBytes': 1024*1024*5,  # 5 MB
@@ -119,13 +119,13 @@ LOGGING = {
     'loggers': {
         'predictor': {
             'handlers': ['console', 'file'],
-            'level': 'DEBUG',  # Adjust the level here if needed
+            'level': 'INFO',  # Adjust the level here if needed
             'propagate': False,
         },
     },
     'root': {  # Catch-all logger
         'handlers': ['console','file'],
-        'level': 'DEBUG',  # Adjust the level here if needed
+        'level': 'INFO',  # Adjust the level here if needed
     },
 }
 
