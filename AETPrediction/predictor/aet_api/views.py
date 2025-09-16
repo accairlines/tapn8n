@@ -94,7 +94,7 @@ def get_flight_data(flight_id):
         parcial_start = datetime.now()
         flight_data = calculate_planned_actual_times(flight_row)
         parcial_end = datetime.now()
-        logger.debug(f"Flight data details for flightid: {flight_id} flight data: {len(flight_data)}, processing time: {parcial_end - parcial_start}")
+        logger.debug(f"Calculating times for flightid: {flight_id}: Flight data: {len(flight_data)}, processing time: {parcial_end - parcial_start}")
         
         return flight_data
         
