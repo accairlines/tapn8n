@@ -6,16 +6,16 @@ from datetime import datetime, timedelta
 import json
 import logging
 from .model_loader import ModelLoader
-from .db_extractor import DatabaseExtractor, get_flight_hist_aeteet
+from .db_extractor import get_flight_data_for_prediction 
+from .db_extractor import get_flight_hist_aeteet
 from django.conf import settings
 import pandas as pd
 import traceback
 
 logger = logging.getLogger(__name__)
 
-# Initialize model loader and database extractor (singleton pattern)
+# Initialize model loader
 model_loader = ModelLoader(settings.MODEL_PATH)
-db_extractor = DatabaseExtractor()
 
 @csrf_exempt
 def predict_flight(request, flight_id):
@@ -31,8 +31,10 @@ def predict_flight(request, flight_id):
         # Convert to string and strip whitespace
         flight_id = str(flight_id).strip()
         
-        # Get flight data from database using singleton extractor
+        half_way = datetime.now()
+        # Get flight data from database
         flight_data = get_flight_data(flight_id)
+        logger.info(f"Prediction for flight {flight_id}: Flight data: {len(flight_data)}, processing time: {datetime.now() - half_way}")
         
         if flight_data is None:
             return JsonResponse({
@@ -41,19 +43,18 @@ def predict_flight(request, flight_id):
         
         logger.debug(f"Flight data details: {json.dumps(flight_data, default=str)}")
         # Make prediction
+        half_way = datetime.now()
         prediction = model_loader.predict(flight_data)
-                
-        hist_aeteet = db_extractor.extract_flight_hist_aeteet(flight_id)
+        logger.info(f"Prediction for flight {flight_id}: Prediction: {len(prediction)}, processing time: {datetime.now() - half_way}")
+        
+        half_way = datetime.now()
+        hist_aeteet = get_flight_hist_aeteet(flight_id)
+        logger.info(f"Prediction for flight {flight_id}: Hist: {len(hist_aeteet)}, processing time: {datetime.now() - half_way}")
         
         end_time = datetime.now()
         
         # Format response
         response = format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, (end_time - start_time).total_seconds())
-        
-        # Clean up memory
-        del flight_data, hist_aeteet, prediction
-        import gc
-        gc.collect()
         
         return JsonResponse(response)
         
@@ -72,7 +73,7 @@ def get_flight_data(flight_id):
         # Set start date to current UTC time
         start_date = (timezone.now() - timedelta(days=1)).strftime('%Y-%m-%d')
         end_date = (timezone.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-        flight_df = db_extractor.extract_flight_data(start_date=start_date, end_date=end_date, days_back=None, flight_id=flight_id)
+        flight_df = get_flight_data_for_prediction(start_date=start_date, end_date=end_date, days_back=None, flight_id=flight_id)
         
         # Check if we got any data
         if flight_df.empty:
