@@ -140,7 +140,7 @@ def format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, 
         'aet': round(flight_data['AET']) if flight_data['AET'] is not None else -1,
         'eet': round(flight_data['EET']) if flight_data['EET'] is not None else -1,
         'delta_percentage': round(prediction['delta']) if prediction['delta'] is not None else -1,
-        'hist_aeteet': round(hist_aeteet['DELTA'].iloc[0]/60) if len(hist_aeteet['DELTA'].iloc) > 0 and hist_aeteet['DELTA'].iloc[0] is not None else -1
+        'hist_aeteet': round(hist_aeteet['DELTA'].iloc[0]/60) if not hist_aeteet.empty and len(hist_aeteet) > 0 and hist_aeteet['DELTA'].iloc[0] is not None else -1
     } 
     
 def calculate_planned_actual_times(flight_row):
