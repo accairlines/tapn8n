@@ -1,1 +1,0 @@
-# RAG Django app initialization
