@@ -1,8 +1,9 @@
+from time import time
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import connection
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import json
 import logging
 from .model_loader import ModelLoader
@@ -153,9 +154,13 @@ def calculate_planned_actual_times(flight_row):
     
     # Helper to convert time string to seconds
     def parse_time_to_seconds(t):
-        total_seconds = t.hour * 3600 + t.minute * 60 + t.second + t.microsecond / 1e6
-        return total_seconds
-
+        if isinstance(t, float):
+            return t
+        if isinstance(t, time):
+            total_seconds = t.hour * 3600 + t.minute * 60 + t.second + t.microsecond / 1e6
+            return total_seconds
+        return 0
+    
     # Parse all relevant datetimes
     offblock = parse_dt(flight_row.get('OFFBLOCK'))
     mvt = parse_dt(flight_row.get('MVT'))
