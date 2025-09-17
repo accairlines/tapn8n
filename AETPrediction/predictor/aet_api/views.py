@@ -154,11 +154,25 @@ def calculate_planned_actual_times(flight_row):
     
     # Helper to convert time string to seconds
     def parse_time_to_seconds(t):
-        if isinstance(t, float):
+        if t is None:
+            return 0
+        if isinstance(t, (int, float)):
             return t
         if isinstance(t, time):
             total_seconds = t.hour * 3600 + t.minute * 60 + t.second + t.microsecond / 1e6
             return total_seconds
+        # Try to parse as string if it's a string
+        if isinstance(t, str):
+            try:
+                # Try to parse as time string (HH:MM:SS format)
+                time_parts = t.split(':')
+                if len(time_parts) >= 2:
+                    hours = int(time_parts[0])
+                    minutes = int(time_parts[1])
+                    seconds = int(time_parts[2]) if len(time_parts) > 2 else 0
+                    return hours * 3600 + minutes * 60 + seconds
+            except (ValueError, IndexError):
+                pass
         return 0
     
     # Parse all relevant datetimes
