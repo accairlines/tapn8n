@@ -125,22 +125,31 @@ def format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, 
     
     logger.info(f"Prediction output structure for flight {flight_id}: {str(prediction)}, processing time: {processing_time}")
         
+    # Helper function to safely round values, handling NaN and None
+    def safe_round(value, default=0):
+        if value is None or pd.isna(value):
+            return default
+        try:
+            return round(value)
+        except (ValueError, TypeError):
+            return default
+    
     return {
         'flight_id': flight_id,
         'std': flight_data['STD'],
         'sta': flight_data['STA'],
-        'planned_taxi_out': round(flight_data['planned_taxi_out']) if flight_data['planned_taxi_out'] is not None else 0,
-        'planned_airborne': round(flight_data['planned_airborne']) if flight_data['planned_airborne'] is not None else 0,
-        'planned_taxi_in': round(flight_data['planned_taxi_in']) if flight_data['planned_taxi_in'] is not None else 0,
-        'planned_total_time': round(flight_data['planned_total_time']) if flight_data['planned_total_time'] is not None else 0,
-        'actual_taxi_out': round(flight_data['actual_taxi_out']) if flight_data['actual_taxi_out'] is not None else -1,
-        'actual_airborne': round(flight_data['actual_airborne']) if flight_data['actual_airborne'] is not None else -1,
-        'actual_taxi_in': round(flight_data['actual_taxi_in']) if flight_data['actual_taxi_in'] is not None else -1,
-        'actual_total_time': round(flight_data['actual_total_time']) if flight_data['actual_total_time'] is not None else -1,
-        'aet': round(flight_data['AET']) if flight_data['AET'] is not None else -1,
-        'eet': round(flight_data['EET']) if flight_data['EET'] is not None else -1,
-        'delta_percentage': round(prediction['delta']) if prediction['delta'] is not None else -1,
-        'hist_aeteet': round(hist_aeteet['DELTA'].iloc[0]/60) if not hist_aeteet.empty and len(hist_aeteet) > 0 and hist_aeteet['DELTA'].iloc[0] is not None else -1
+        'planned_taxi_out': safe_round(flight_data['planned_taxi_out']),
+        'planned_airborne': safe_round(flight_data['planned_airborne']),
+        'planned_taxi_in': safe_round(flight_data['planned_taxi_in']),
+        'planned_total_time': safe_round(flight_data['planned_total_time']),
+        'actual_taxi_out': safe_round(flight_data['actual_taxi_out'], -1),
+        'actual_airborne': safe_round(flight_data['actual_airborne'], -1),
+        'actual_taxi_in': safe_round(flight_data['actual_taxi_in'], -1),
+        'actual_total_time': safe_round(flight_data['actual_total_time'], -1),
+        'aet': safe_round(flight_data['AET'], -1),
+        'eet': safe_round(flight_data['EET'], -1),
+        'delta_percentage': safe_round(prediction['delta'], -1),
+        'hist_aeteet': safe_round(hist_aeteet['DELTA'].iloc[0]/60, -1) if not hist_aeteet.empty and len(hist_aeteet) > 0 and hist_aeteet['DELTA'].iloc[0] is not None else -1
     } 
     
 def calculate_planned_actual_times(flight_row):
