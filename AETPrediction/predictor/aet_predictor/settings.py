@@ -74,8 +74,8 @@ DATABASES = {
             }
         },
         'POOL_OPTIONS' : {
-            'POOL_SIZE': 10,
-            'MAX_OVERFLOW': 0
+            'POOL_SIZE': 30,
+            'MAX_OVERFLOW': 10
         }
     },
 }
