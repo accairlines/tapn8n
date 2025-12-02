@@ -132,4 +132,8 @@ LOGGING = {
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField' 
 
+# Set base path from environment or default
+BASE_PATH = os.getenv('AET_BASE_PATH')
+DATA_PATH = os.getenv('AET_DATA_PATH')
+LOG_PATH = os.getenv('AET_LOG_PATH')
 MODEL_PATH = os.path.join(os.getenv('AET_MODEL_PATH'), 'model.pkl')

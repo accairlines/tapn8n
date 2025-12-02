@@ -13,34 +13,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, r2_score
 import xgboost as xgb
-from preprocess import preprocess_flight_data
+from aet_api.preprocess import preprocess_flight_data
 import glob
 import os
-from dotenv import load_dotenv
 import traceback
-from db_extract import extract_data_per_month
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Set base path from environment or default
-BASE_PATH = os.environ.get('AET_BASE_PATH')
-DATA_PATH = os.environ.get('AET_DATA_PATH')
-LOG_PATH = os.environ.get('AET_LOG_PATH')
-MODEL_PATH = os.path.join(os.environ.get('AET_MODEL_PATH'), 'model.pkl')
-
-# Ensure log directory exists
-os.makedirs(LOG_PATH, exist_ok=True)
-
-# Setup logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(os.path.join(LOG_PATH, 'training.log')),
-        logging.StreamHandler()
-    ]
-)
+from django.conf import settings
 
 flights_cols_all = [
     'OPERATOR', 'FLT_NR', 'AC_REGISTRATION', 'FROM_IATA', 'TO_IATA', 'DIV_IATA', 'STD', 'ETD', 'ATD', 'STA',
@@ -79,15 +56,9 @@ def load_data():
     stations_cols = stations_cols_all
 
     def read_multi_csv_to_dicts(root, pattern, usecols=None):
-        # Also check for .done files (files that were already processed)
         files = glob.glob(os.path.join(root, pattern))
-        # Check for .done files by replacing .csv with .done in the pattern
-        done_pattern = pattern.replace('*.csv', '*.done')
-        done_files = glob.glob(os.path.join(root, done_pattern))
-        # Combine both .csv and .done files
-        files = files + done_files
         if not files:
-            logging.warning(f"No files found for pattern: {pattern} or .done files, returning empty list")
+            logging.warning(f"No files found for pattern: {pattern}, returning empty list")
             return []
         df_list = []
         for f in files:
@@ -128,15 +99,9 @@ def load_data():
 
     def read_acars_files(root, pattern, usecols=None):
         """Read ACARS files and return as list of dicts, return empty list if no files found"""
-        # Also check for .done files (files that were already processed)
         files = glob.glob(os.path.join(root, pattern))
-        # Check for .done files by replacing .csv with .done in the pattern
-        done_pattern = pattern.replace('*.csv', '*.done')
-        done_files = glob.glob(os.path.join(root, done_pattern))
-        # Combine both .csv and .done files
-        files = files + done_files
         if not files:
-            logging.warning(f"No files found for pattern: {pattern} or .done files, returning empty list")
+            logging.warning(f"No files found for pattern: {pattern}, returning empty list")
             return []
         df_list = []
         for f in files:
@@ -166,7 +131,7 @@ def load_data():
     all_acars = []
     folders_paths = []
     
-    for root, dirs, files in os.walk(DATA_PATH):
+    for root, dirs, files in os.walk(settings.DATA_PATH):
         if 'cache' in root:
             continue
         folders_paths.append(root)
@@ -196,9 +161,9 @@ def load_data():
     logging.info(f"Loaded {len(all_mel)} mel (as dicts)")
     
     # Load base tables
-    equipments = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'equipments.csv'), usecols=equipments_cols)
-    aircrafts = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'aircrafts.csv'), usecols=aircrafts_cols)
-    stations = read_single_csv_to_dicts(os.path.join(DATA_PATH, 'stations_utc.csv'), usecols=stations_cols)
+    equipments = read_single_csv_to_dicts(os.path.join(settings.DATA_PATH, 'equipments.csv'), usecols=equipments_cols)
+    aircrafts = read_single_csv_to_dicts(os.path.join(settings.DATA_PATH, 'aircrafts.csv'), usecols=aircrafts_cols)
+    stations = read_single_csv_to_dicts(os.path.join(settings.DATA_PATH, 'stations_utc.csv'), usecols=stations_cols)
 
     logging.info(f"Loaded {len(flights)} flights (as dicts)")
 
@@ -481,7 +446,7 @@ def save_models(models, scaler, metrics):
         'feature_names': scaler.feature_names_in_.tolist()
     }
     
-    with open(MODEL_PATH, 'wb') as f:
+    with open(settings.MODEL_PATH, 'wb') as f:
         pickle.dump(model_data, f)
     
     logging.info("Models saved successfully")
@@ -555,159 +520,39 @@ def extract_targetsfeatures_from_flights(flights):
     return feactures_processed, targets_processed
 
 
-def get_cache_paths(cache_type='current'):
-    """Get cache file paths for static (past months) or current month cache"""
-    cache_dir = os.path.join(DATA_PATH, 'cache')
+def save_features_targets_to_csv(features, targets):
+    """Save features and targets to CSV files for caching"""
+    logging.info("Saving features and targets to CSV files for caching...")
+    
+    # Create cache directory if it doesn't exist
+    cache_dir = os.path.join(settings.DATA_PATH, 'cache')
     os.makedirs(cache_dir, exist_ok=True)
     
-    if cache_type == 'static':
-        features_path = os.path.join(cache_dir, 'features.csv')
-        targets_path = os.path.join(cache_dir, 'targets.csv')
-        metadata_path = os.path.join(cache_dir, 'metadata.json')
-    else:  # current month
-        features_path = os.path.join(cache_dir, 'current_month_features.csv')
-        targets_path = os.path.join(cache_dir, 'current_month_targets.csv')
-        metadata_path = os.path.join(cache_dir, 'current_month_metadata.json')
-    
-    return features_path, targets_path, metadata_path
-
-
-def get_last_cache_month():
-    """Get the last month that was cached (from current_month_metadata.json)"""
-    _, _, metadata_path = get_cache_paths('current')
-    if os.path.exists(metadata_path):
-        import json
-        try:
-            with open(metadata_path, 'r') as f:
-                metadata = json.load(f)
-                if 'month' in metadata:
-                    return metadata['month']
-        except Exception as e:
-            logging.warning(f"Error reading last cache month: {str(e)}")
-    return None
-
-
-def check_and_handle_month_transition():
-    """Check if month has changed and handle transition by appending current month to static cache"""
-    current_date = datetime.now()
-    current_month = (current_date.year, current_date.month)
-    
-    last_month = get_last_cache_month()
-    
-    if last_month is not None and last_month != current_month:
-        logging.info(f"Month transition detected: {last_month} -> {current_month}")
-        logging.info("Appending current month data to static cache...")
-        
-        # Load current month cache
-        features_path, targets_path, metadata_path = get_cache_paths('current')
-        
-        if os.path.exists(features_path) and os.path.exists(targets_path):
-            current_features = pd.read_csv(features_path)
-            current_targets = pd.read_csv(targets_path)
-            
-            # Load static cache (past months)
-            static_features_path, static_targets_path, static_metadata_path = get_cache_paths('static')
-            
-            if os.path.exists(static_features_path) and os.path.exists(static_targets_path):
-                # Append current month to static cache
-                static_features = pd.read_csv(static_features_path)
-                static_targets = pd.read_csv(static_targets_path)
-                
-                combined_features = pd.concat([static_features, current_features], ignore_index=True)
-                combined_targets = pd.concat([static_targets, current_targets], ignore_index=True)
-                
-                # Save updated static cache
-                combined_features.to_csv(static_features_path, index=False)
-                combined_targets.to_csv(static_targets_path, index=False)
-                
-                # Update static metadata
-                import json
-                static_metadata = {
-                    'features_shape': combined_features.shape,
-                    'targets_shape': combined_targets.shape,
-                    'last_updated_at': datetime.now().isoformat(),
-                    'last_completed_month': last_month,
-                    'feature_columns': combined_features.columns.tolist(),
-                    'target_columns': combined_targets.columns.tolist()
-                }
-                with open(static_metadata_path, 'w') as f:
-                    json.dump(static_metadata, f, indent=2)
-                
-                logging.info(f"Appended {len(current_features)} rows to static cache")
-            else:
-                # First time - move current month to static cache
-                current_features.to_csv(static_features_path, index=False)
-                current_targets.to_csv(static_targets_path, index=False)
-                
-                import json
-                static_metadata = {
-                    'features_shape': current_features.shape,
-                    'targets_shape': current_targets.shape,
-                    'last_updated_at': datetime.now().isoformat(),
-                    'last_completed_month': last_month,
-                    'feature_columns': current_features.columns.tolist(),
-                    'target_columns': current_targets.columns.tolist()
-                }
-                with open(static_metadata_path, 'w') as f:
-                    json.dump(static_metadata, f, indent=2)
-                
-                logging.info(f"Moved {len(current_features)} rows to static cache (first time)")
-        
-        # Clear current month cache files
-        if os.path.exists(features_path):
-            os.remove(features_path)
-        if os.path.exists(targets_path):
-            os.remove(targets_path)
-        if os.path.exists(metadata_path):
-            os.remove(metadata_path)
-        
-        logging.info("Current month cache cleared for new month")
-        return True
-    
-    return False
-
-
-def save_features_targets_to_csv(features, targets):
-    """Save features and targets to current month cache files (recreated each run)"""
-    logging.info("Saving features and targets to current month cache files...")
-    
-    # Check for month transition first
-    check_and_handle_month_transition()
-    
-    # Get current month cache paths
-    features_path, targets_path, metadata_path = get_cache_paths('current')
-    
-    # Always recreate current month cache files (remove if exist)
-    if os.path.exists(features_path):
-        os.remove(features_path)
-    if os.path.exists(targets_path):
-        os.remove(targets_path)
-    
-    # Save features and targets to current month cache
+    # Save features
+    features_path = os.path.join(cache_dir, 'features.csv')
     features.to_csv(features_path, index=False)
-    logging.info(f"Current month features saved to: {features_path}")
+    logging.info(f"Features saved to: {features_path}")
     
+    # Save targets
+    targets_path = os.path.join(cache_dir, 'targets.csv')
     targets.to_csv(targets_path, index=False)
-    logging.info(f"Current month targets saved to: {targets_path}")
+    logging.info(f"Targets saved to: {targets_path}")
     
-    # Save metadata with timestamp and current month
-    current_date = datetime.now()
-    current_month = (current_date.year, current_date.month)
-    
+    # Save metadata with timestamp
     metadata = {
         'features_shape': features.shape,
         'targets_shape': targets.shape,
-        'saved_at': current_date.isoformat(),
-        'month': current_month,
+        'saved_at': datetime.now().isoformat(),
         'feature_columns': features.columns.tolist(),
         'target_columns': targets.columns.tolist()
     }
     
     import json
+    metadata_path = os.path.join(cache_dir, 'metadata.json')
     with open(metadata_path, 'w') as f:
         json.dump(metadata, f, indent=2)
     
-    logging.info(f"Current month metadata saved to: {metadata_path}")
+    logging.info(f"Metadata saved to: {metadata_path}")
 
 
 def rename_csv_files_to_done(folders_paths):
@@ -746,127 +591,29 @@ def rename_csv_files_to_done(folders_paths):
     
     logging.info(f"Successfully renamed {renamed_count} CSV files to .done extension")
 
-def main():
-    """Main training pipeline"""
-    logging.info("=== Starting daily training ===")
+
+def load_features_targets_from_csv():
+    """Load features and targets from CSV files if they exist"""
+    cache_dir = os.path.join(settings.DATA_PATH, 'cache')
+    features_path = os.path.join(cache_dir, 'features.csv')
+    targets_path = os.path.join(cache_dir, 'targets.csv')
+    metadata_path = os.path.join(cache_dir, 'metadata.json')
     
-    try:
-        # Extract data from database per month
-        logging.info("=== Extracting Data from Database ===")
-        try:
-            # Extract data from January 2024 to current month
-            extract_data_per_month(2024, 7)
-            logging.info("=== Database Extraction Completed ===")
-        except Exception as e:
-            logging.warning(f"Database extraction failed or skipped: {str(e)}")
-            logging.info("Continuing with existing data files...")
-                
-        # Always process new data
-        logging.info("=== Loading Data ===")
-        flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations, folders_paths = load_data()
-        logging.info("=== Loading Data Completed ===")
-                
-        # Prepare training data
-        logging.info("=== Preparing Training Data ===")
-        flights = prepare_training_data(
-            flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations
-        )
-        logging.info("=== Preparing Training Data Completed ===")
+    if os.path.exists(features_path) and os.path.exists(targets_path):
+        logging.info("Loading features and targets from cached CSV files...")
         
-        # Remove flights with no flight_plan
-        logging.info("=== Removing Flights with No Flight Plan ===")
-        flights = [flight for flight in flights if flight.get('flight_plan')]
-        logging.info("=== Removing Flights with No Flight Plan Completed ===")
+        features = pd.read_csv(features_path)
+        targets = pd.read_csv(targets_path)
         
-        # Calculate actual times
-        logging.info("=== Calculating Actual Times ===")
-        flights = calculate_planned_actual_times(flights)
-        logging.info("=== Calculating Actual Times Completed ===")
-
-        # Extract targets and features from new data
-        logging.info("=== Extracting Targets and Features ===")
-        new_features, new_targets = extract_targetsfeatures_from_flights(flights)
-        logging.info("=== Extracting Targets and Features Completed ===")
+        # Load and log metadata
+        if os.path.exists(metadata_path):
+            import json
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
+            logging.info(f"Loaded cached data - Features: {metadata['features_shape']}, Targets: {metadata['targets_shape']}")
+            logging.info(f"Cached data saved at: {metadata['saved_at']}")
         
-        # Check if there's new data to process
-        if len(new_features) == 0:
-            logging.info("Nothing to process as features are empty")
-            return 0
-        
-        # Separate cached data: static (past months) and current month
-        # cached_features/targets from load_features_targets_from_csv() contains static + current month combined
-        # We need to extract only current month data to rebuild current month cache
-        
-        # Get current month cache separately
-        current_features_path, current_targets_path, _ = get_cache_paths('current')
-        current_month_cache_features = None
-        current_month_cache_targets = None
-        
-        if os.path.exists(current_features_path) and os.path.exists(current_targets_path):
-            current_month_cache_features = pd.read_csv(current_features_path)
-            current_month_cache_targets = pd.read_csv(current_targets_path)
-        
-        # Rebuild current month cache: combine existing current month cache + new data
-        # This is recreated each run with all current month data processed so far
-        if current_month_cache_features is not None and current_month_cache_targets is not None:
-            logging.info("Rebuilding current month cache: combining existing current month cache with new data...")
-            current_month_features = pd.concat([current_month_cache_features, new_features], ignore_index=True)
-            current_month_targets = pd.concat([current_month_cache_targets, new_targets], ignore_index=True)
-        else:
-            logging.info("Creating new current month cache with new data...")
-            current_month_features = new_features
-            current_month_targets = new_targets
-        
-        # Save to current month cache (this replaces any existing current month cache)
-        # The save function will handle month transition automatically
-        logging.info(f"Current month cache - Features: {current_month_features.shape}, Targets: {current_month_targets.shape}")
-        logging.info("=== Saving to Current Month Cache ===")
-        save_features_targets_to_csv(current_month_features, current_month_targets)
-        logging.info("=== Saving to Current Month Cache Completed ===")
-        
-        # For training, combine static cache (past months) + current month cache
-        static_features_path, static_targets_path, _ = get_cache_paths('static')
-        static_features = None
-        static_targets = None
-        
-        if os.path.exists(static_features_path) and os.path.exists(static_targets_path):
-            static_features = pd.read_csv(static_features_path)
-            static_targets = pd.read_csv(static_targets_path)
-        
-        # Combine for training
-        if static_features is not None and static_targets is not None:
-            logging.info("Combining static cache (past months) with current month cache for training...")
-            features = pd.concat([static_features, current_month_features], ignore_index=True)
-            targets = pd.concat([static_targets, current_month_targets], ignore_index=True)
-            logging.info(f"Final training dataset - Features: {features.shape}, Targets: {targets.shape}")
-        else:
-            logging.info("Using only current month cache for training (no static cache found)")
-            features, targets = current_month_features, current_month_targets
-            logging.info(f"Training dataset - Features: {features.shape}, Targets: {targets.shape}")
-
-        # Rename CSV files to .done
-        logging.info("=== Renaming CSV Files to .done ===")
-        rename_csv_files_to_done(folders_paths)
-        logging.info("=== Renaming CSV Files to .done Completed ===")
-                
-        # Train models
-        logging.info("=== Training Models ===")
-        models, scaler, metrics = train_models(features, targets)
-        logging.info("=== Training Models Completed ===")
-        
-        # Save models
-        logging.info("=== Saving Models ===")
-        save_models(models, scaler, metrics)
-        logging.info("=== Saving Models Completed ===")
-        
-        # Log completion
-        logging.info("=== Training completed successfully ===")
-        return 0
-    except Exception as e:
-        error = e.args[0]
-        logging.error(''.join(traceback.format_exception(type(e), e, e.__traceback__)))
-        return 1
-
-if __name__ == "__main__":
-    success = main()     
-    sys.exit(0 if success else 1)
+        return features, targets
+    else:
+        logging.info("No cached CSV files found")
+        return None, None
