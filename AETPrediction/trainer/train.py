@@ -847,7 +847,7 @@ def main():
         # Extract data from database per month
         logging.info("=== Extracting Data from Database ===")
         try:
-            # Extract data from January 2024 to current month
+            # Extract data from to current month
             extract_data_per_month(2024, 7)
             logging.info("=== Database Extraction Completed ===")
         except Exception as e:

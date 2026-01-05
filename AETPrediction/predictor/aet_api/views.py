@@ -39,7 +39,7 @@ def predict_flight(request, flight_id):
         # Get model type from query parameters (default: ensemble)
         model_type = request.GET.get('model', 'ensemble').lower()
         if model_type not in ['xgb', 'ft_transformer', 'ensemble']:
-            model_type = 'ensemble'
+            model_type = 'xgb'
             logger.warning(f"Invalid model type requested, defaulting to 'ensemble'")
         
         # Get flight data from database
