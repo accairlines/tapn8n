@@ -237,7 +237,7 @@ def format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, 
         'actual_total_time': safe_round(flight_data['actual_total_time'], -1),
         'aet': safe_round(flight_data['AET'], -1),
         'eet': safe_round(flight_data['EET'], -1),
-        'delta_percentage': safe_round(prediction['xgb'], -1) if model_type == 'xgb' else 0,
+        'delta_percentage': safe_round(prediction['delta'], -1) if model_type == 'xgb' else 0,
         'delta_percentage_ft': safe_round(prediction['ft_transformer'], -1) if model_type == 'ft_transformer' else 0,
         'hist_aeteet': safe_round(hist_aeteet['DELTA'].iloc[0]/60, -1) if not hist_aeteet.empty and len(hist_aeteet) > 0 and hist_aeteet['DELTA'].iloc[0] is not None else -1
     } 
