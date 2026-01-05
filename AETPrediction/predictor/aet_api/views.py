@@ -67,7 +67,7 @@ def predict_flight(request, flight_id):
         end_time = datetime.now()
         
         # Format response
-        response = format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, (end_time - start_time).total_seconds())
+        response = format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, (end_time - start_time).total_seconds(), model_type)
         
         return JsonResponse(response)
         
