@@ -14,7 +14,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY train.py preprocess.py codification.py db_extract.py ./
+COPY . . 
 
 # Copy automation scripts
 COPY system/run_train.sh /app/system/run_train.sh
