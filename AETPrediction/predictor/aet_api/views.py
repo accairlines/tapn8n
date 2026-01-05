@@ -37,7 +37,7 @@ def predict_flight(request, flight_id):
         flight_id = str(flight_id).strip()
         
         # Get model type from query parameters (default: ensemble)
-        model_type = request.GET.get('model', 'ensemble').lower()
+        model_type = request.GET.get('model', 'xgb').lower()
         if model_type not in ['xgb', 'ft_transformer', 'ensemble']:
             model_type = 'xgb'
             logger.warning(f"Invalid model type requested, defaulting to 'ensemble'")
@@ -191,7 +191,7 @@ def get_flight_data(flight_id):
     except Exception as e:
         raise e
 
-def format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, processing_time):
+def format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, processing_time, model_type):
     """Format prediction into API response"""
     # Convert predictions from minutes to HH:MM:SS format
     def minutes_to_time(minutes):
@@ -237,7 +237,8 @@ def format_prediction_response(flight_id, prediction, flight_data, hist_aeteet, 
         'actual_total_time': safe_round(flight_data['actual_total_time'], -1),
         'aet': safe_round(flight_data['AET'], -1),
         'eet': safe_round(flight_data['EET'], -1),
-        'delta_percentage': safe_round(prediction['delta'], -1),
+        'delta_percentage': safe_round(prediction['xgb'], -1) if model_type == 'xgb' else 0,
+        'delta_percentage_ft': safe_round(prediction['ft_transformer'], -1) if model_type == 'ft_transformer' else 0,
         'hist_aeteet': safe_round(hist_aeteet['DELTA'].iloc[0]/60, -1) if not hist_aeteet.empty and len(hist_aeteet) > 0 and hist_aeteet['DELTA'].iloc[0] is not None else -1
     } 
     
