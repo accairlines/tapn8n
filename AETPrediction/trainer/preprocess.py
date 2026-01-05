@@ -46,7 +46,7 @@ acars_cols = []
 
 calculated_cols_all = [
     'actual_taxi_out', 'actual_airborne', 'actual_taxi_in', 'actual_total_time', 'planned_taxi_out', 'planned_airborne', 
-    'planned_taxi_in', 'planned_total_time', 'AET', 'EET'
+    'planned_taxi_in', 'planned_total_time', 'AET', 'EET', 'delay_dep'
 ]
 calculated_cols = [
     'EET'

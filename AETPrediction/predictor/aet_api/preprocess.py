@@ -21,7 +21,7 @@ numeric_cols_all = [
     'FLT_NR', 'PAX_BOARDED', 'CARGO', 'CAPACITY', 'fp_PERFORMANCE_FACTOR', 'fp_CLIMB_CI', 'fp_CRUISE_CI', 'fp_DESCENT_CI', 
     'fp_GREAT_CIRC', 'fp_ZERO_FUEL_WEIGHT', 'fp_TAXI_OUT_TIME', 'fp_TAXI_IN_TIME', 'fp_FLIGHT_TIME', 'actual_taxi_out', 
     'actual_airborne', 'actual_taxi_in', 'actual_total_time', 'planned_taxi_out', 'planned_airborne', 'planned_taxi_in', 
-    'planned_total_time', 'AET', 'EET'
+    'planned_total_time', 'AET', 'EET', 'delay_dep'
 ]
 numeric_cols = [
     'FLT_NR', 'fp_PERFORMANCE_FACTOR', 'fp_CRUISE_CI', 'fp_GREAT_CIRC'
@@ -46,7 +46,7 @@ acars_cols = []
 
 calculated_cols_all = [
     'actual_taxi_out', 'actual_airborne', 'actual_taxi_in', 'actual_total_time', 'planned_taxi_out', 'planned_airborne', 
-    'planned_taxi_in', 'planned_total_time', 'AET', 'EET'
+    'planned_taxi_in', 'planned_total_time', 'AET', 'EET', 'delay_dep'
 ]
 calculated_cols = [
     'EET'
@@ -161,4 +161,33 @@ def preprocess_flight_data(flight):
         
     # Fill missing values with -1
     features_data = features_data.fillna(-1)
-    return features_data 
+    return features_data
+
+
+def preprocess_flight_data_for_ft_transformer(flight):
+    """
+    Preprocess flight data for FT-Transformer: returns separate categorical and numerical features.
+    Returns: (categorical_df, numerical_df) where both are DataFrames
+    """
+    # First get the standard preprocessed data
+    features_data = preprocess_flight_data(flight)
+    
+    # Identify categorical columns (those ending with '_code')
+    categorical_cols = [col for col in features_data.columns if col.endswith('_code')]
+    numerical_cols = [col for col in features_data.columns if col not in categorical_cols]
+    
+    # Extract categorical and numerical features
+    categorical_df = features_data[categorical_cols].copy() if categorical_cols else pd.DataFrame()
+    numerical_df = features_data[numerical_cols].copy() if numerical_cols else pd.DataFrame()
+    
+    # Ensure categorical values are integers (for embedding lookup)
+    if not categorical_df.empty:
+        for col in categorical_df.columns:
+            categorical_df[col] = pd.to_numeric(categorical_df[col], errors='coerce').fillna(-1).astype(int)
+    
+    # Ensure numerical values are floats
+    if not numerical_df.empty:
+        for col in numerical_df.columns:
+            numerical_df[col] = pd.to_numeric(numerical_df[col], errors='coerce').fillna(-1.0).astype(float)
+    
+    return categorical_df, numerical_df 

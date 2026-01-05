@@ -20,7 +20,11 @@ model_loader = ModelLoader(settings.MODEL_PATH)
 
 @csrf_exempt
 def predict_flight(request, flight_id):
-    """Predict AET for a specific flight"""
+    """Predict AET for a specific flight
+    
+    Query parameters:
+        model: 'xgb', 'ft_transformer', or 'ensemble' (default: 'ensemble')
+    """
     start_time = datetime.now()
     try:
         # Validate flight_id
@@ -31,6 +35,12 @@ def predict_flight(request, flight_id):
         
         # Convert to string and strip whitespace
         flight_id = str(flight_id).strip()
+        
+        # Get model type from query parameters (default: ensemble)
+        model_type = request.GET.get('model', 'ensemble').lower()
+        if model_type not in ['xgb', 'ft_transformer', 'ensemble']:
+            model_type = 'ensemble'
+            logger.warning(f"Invalid model type requested, defaulting to 'ensemble'")
         
         # Get flight data from database
         parcial_start = datetime.now()
@@ -45,9 +55,9 @@ def predict_flight(request, flight_id):
         
         # Make prediction
         parcial_start = datetime.now()
-        prediction = model_loader.predict(flight_data)
+        prediction = model_loader.predict(flight_data, model_type=model_type)
         parcial_end = datetime.now()
-        logger.debug(f"Prediction for flight {flight_id}: Prediction: {len(prediction)}, processing time: {parcial_end - parcial_start}")
+        logger.debug(f"Prediction for flight {flight_id}: Model={model_type}, Prediction: {len(prediction)}, processing time: {parcial_end - parcial_start}")
         
         parcial_start = datetime.now()
         hist_aeteet = get_flight_hist_aeteet(flight_id)
@@ -135,12 +145,12 @@ def train_model(request):
                 
         # Train models
         logging.info("=== Training Models ===")
-        models, scaler, metrics = train.train_models(features, targets)
+        models, scaler, metrics, ft_transformer_models, ft_transformer_metrics = train.train_models(features, targets)
         logging.info("=== Training Models Completed ===")
         
         # Save models
         logging.info("=== Saving Models ===")
-        train.save_models(models, scaler, metrics)
+        train.save_models(models, scaler, metrics, ft_transformer_models, ft_transformer_metrics)
         logging.info("=== Saving Models Completed ===")
         
         # Log completion
@@ -270,6 +280,7 @@ def calculate_planned_actual_times(flight_row):
     onblock = parse_dt(flight_row.get('ONBLOCK'))
     from_timediff = flight_row.get('FROM_TIMEDIFF')
     to_timediff = flight_row.get('TO_TIMEDIFF')
+    std = parse_dt(flight_row.get('STD'))
     
     # Calculate planned times (in seconds)
     planned_taxi_out = parse_time_to_seconds(flight_row.get('TAXI_OUT_TIME')) / 60 if flight_row.get('TAXI_OUT_TIME') is not None else 0
@@ -294,6 +305,9 @@ def calculate_planned_actual_times(flight_row):
     raw_delta = (aet - eet) if aet is not None and eet is not None else None
     # Convert delta to percentage of EET
     actual_delta = (raw_delta / eet * 100) if raw_delta is not None and eet is not None and eet != 0 else None
+    
+    # Delay departure: STD - MVT (in minutes)
+    delay_dep = (std - offblock).total_seconds() / 60 if pd.notnull(std) and pd.notnull(offblock) else None
 
     # Create a copy of the flight_row to avoid SettingWithCopyWarning
     flight_data = flight_row.copy()
@@ -309,6 +323,7 @@ def calculate_planned_actual_times(flight_row):
     flight_data['planned_total_time'] = planned_total_time
     flight_data['AET'] = aet
     flight_data['EET'] = eet
+    flight_data['delay_dep'] = delay_dep
     flight_data['actual_delta'] = raw_delta
 
     return flight_data

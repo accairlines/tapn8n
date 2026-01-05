@@ -13,7 +13,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, r2_score
 import xgboost as xgb
-from aet_api.preprocess import preprocess_flight_data
+from aet_api.preprocess import preprocess_flight_data, preprocess_flight_data_for_ft_transformer
+from aet_api.ft_transformer import FTTransformerTrainer
 import glob
 import os
 import traceback
@@ -237,6 +238,7 @@ def calculate_planned_actual_times(flights):
         flight['planned_total_time'] = planned_total_time
         flight['AET'] = aet
         flight['EET'] = eet
+        flight['delta_dep'] = eet
         flight['actual_delta'] = actual_delta
 
     return flights
@@ -386,10 +388,10 @@ def prepare_training_data(flights, flight_plan, waypoints, mel, acars, equipment
 
 
 def train_models(features, targets):
-    """Train separate XGBoost models for each time component"""
-    logging.info("Training models...")
+    """Train both XGBoost and FT-Transformer models for each time component"""
+    logging.info("Training models (XGBoost and FT-Transformer)...")
 
-    # Ensure only numeric columns are used
+    # Ensure only numeric columns are used for XGBoost
     features_numeric = features.select_dtypes(include=[np.number])
     
     # Split data
@@ -397,18 +399,31 @@ def train_models(features, targets):
         features_numeric, targets, test_size=0.2, random_state=42
     )
     
-    # Scale features
+    # Scale features for XGBoost
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
+    # Prepare data for FT-Transformer: separate categorical and numerical
+    # Identify categorical columns (those ending with '_code')
+    categorical_cols = [col for col in features.columns if col.endswith('_code')]
+    numerical_cols = [col for col in features.columns if col not in categorical_cols and col in features_numeric.columns]
+    
+    X_train_cat = X_train[categorical_cols] if categorical_cols else pd.DataFrame()
+    X_train_num = X_train[numerical_cols] if numerical_cols else pd.DataFrame()
+    X_test_cat = X_test[categorical_cols] if categorical_cols else pd.DataFrame()
+    X_test_num = X_test[numerical_cols] if numerical_cols else pd.DataFrame()
+    
     models = {}
+    ft_transformer_models = {}
     metrics = {}
+    ft_transformer_metrics = {}
     
     # Train model for each target
     for target in ['delta']:
-        logging.info(f"Training model for {target}...")
+        logging.info(f"Training XGBoost model for {target}...")
         
+        # Train XGBoost
         model = xgb.XGBRegressor(
             n_estimators=200,
             max_depth=8,
@@ -421,7 +436,7 @@ def train_models(features, targets):
         
         model.fit(X_train_scaled, y_train[target])
         
-        # Evaluate
+        # Evaluate XGBoost
         y_pred = model.predict(X_test_scaled)
         mae = mean_absolute_error(y_test[target], y_pred)
         r2 = r2_score(y_test[target], y_pred)
@@ -429,13 +444,62 @@ def train_models(features, targets):
         models[target] = model
         metrics[target] = {'mae': mae, 'r2': r2}
         
-        logging.info(f"{target} - MAE: {mae:.2f}%, R2: {r2:.3f}")
+        logging.info(f"XGBoost {target} - MAE: {mae:.2f}%, R2: {r2:.3f}")
+        
+        # Train FT-Transformer
+        logging.info(f"Training FT-Transformer model for {target}...")
+        
+        num_numerical = len(numerical_cols) if numerical_cols else 0
+        num_categories = len(categorical_cols) if categorical_cols else 0
+        
+        if num_numerical == 0 and num_categories == 0:
+            logging.warning("No features available for FT-Transformer, skipping...")
+            ft_transformer_models[target] = None
+            ft_transformer_metrics[target] = {'mae': None, 'r2': None}
+        else:
+            trainer = FTTransformerTrainer(
+                num_numerical=num_numerical,
+                num_categories=num_categories,
+                d_token=192,
+                n_layers=3,
+                n_heads=8,
+                d_ff=768,
+                dropout=0.1,
+                learning_rate=1e-4,
+                batch_size=256,
+                n_epochs=50,  # Reduced for faster training
+                device=None
+            )
+            
+            # Train FT-Transformer
+            ft_model, ft_scaler = trainer.train(
+                X_train_num if not X_train_num.empty else None,
+                X_train_cat if not X_train_cat.empty else None,
+                y_train[target].values
+            )
+            
+            # Evaluate FT-Transformer
+            y_pred_ft = trainer.predict(
+                X_test_num if not X_test_num.empty else None,
+                X_test_cat if not X_test_cat.empty else None
+            )
+            mae_ft = mean_absolute_error(y_test[target], y_pred_ft)
+            r2_ft = r2_score(y_test[target], y_pred_ft)
+            
+            ft_transformer_models[target] = {
+                'model': ft_model,
+                'trainer': trainer,
+                'scaler': ft_scaler
+            }
+            ft_transformer_metrics[target] = {'mae': mae_ft, 'r2': r2_ft}
+            
+            logging.info(f"FT-Transformer {target} - MAE: {mae_ft:.2f}%, R2: {r2_ft:.3f}")
     
-    return models, scaler, metrics
+    return models, scaler, metrics, ft_transformer_models, ft_transformer_metrics
 
 
-def save_models(models, scaler, metrics):
-    """Save trained models and scaler"""
+def save_models(models, scaler, metrics, ft_transformer_models=None, ft_transformer_metrics=None):
+    """Save trained models and scaler (both XGBoost and FT-Transformer)"""
     logging.info("Saving models...")
     
     model_data = {
@@ -443,8 +507,33 @@ def save_models(models, scaler, metrics):
         'scaler': scaler,
         'metrics': metrics,
         'training_date': datetime.now().isoformat(),
-        'feature_names': scaler.feature_names_in_.tolist()
+        'feature_names': scaler.feature_names_in_.tolist() if hasattr(scaler, 'feature_names_in_') else None
     }
+    
+    # Add FT-Transformer models if provided
+    if ft_transformer_models is not None:
+        # Save FT-Transformer models (save state dicts, not full models)
+        ft_model_data = {}
+        for target, ft_data in ft_transformer_models.items():
+            if ft_data is not None:
+                ft_model_data[target] = {
+                    'model_state_dict': ft_data['model'].state_dict(),
+                    'model_config': {
+                        'num_numerical': ft_data['trainer'].num_numerical,
+                        'num_categories': ft_data['trainer'].num_categories,
+                        'd_token': ft_data['trainer'].d_token,
+                        'n_layers': ft_data['trainer'].n_layers,
+                        'n_heads': ft_data['trainer'].n_heads,
+                        'd_ff': ft_data['trainer'].d_ff,
+                        'dropout': ft_data['trainer'].dropout
+                    },
+                    'numerical_scaler': ft_data['scaler']
+                }
+            else:
+                ft_model_data[target] = None
+        
+        model_data['ft_transformer_models'] = ft_model_data
+        model_data['ft_transformer_metrics'] = ft_transformer_metrics
     
     with open(settings.MODEL_PATH, 'wb') as f:
         pickle.dump(model_data, f)
@@ -514,7 +603,7 @@ def extract_targetsfeatures_from_flights(flights):
         row['planned_total_time'] = flight.get('planned_total_time')
         row['AET'] = flight.get('AET')
         row['EET'] = flight.get('EET')
-        row['delta'] = flight.get('actual_delta')
+        row['delay_dep'] = flight.get('delay_dep')
         data.append(row)
     feactures_processed, targets_processed = preprocess_flight_data(data)
     return feactures_processed, targets_processed
