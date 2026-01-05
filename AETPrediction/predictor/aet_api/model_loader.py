@@ -28,9 +28,15 @@ class ModelLoader:
             
             # Load FT-Transformer models if they exist
             if 'ft_transformer_models' in self.model_data:
+                logger.info("Found FT-Transformer models in saved data, loading...")
                 self._load_ft_transformer_models()
+                if hasattr(self, 'ft_transformer_trainers') and self.ft_transformer_trainers:
+                    logger.info(f"Successfully loaded {len(self.ft_transformer_trainers)} FT-Transformer model(s)")
+                else:
+                    logger.warning("FT-Transformer models found in data but failed to load")
             else:
-                logger.info("No FT-Transformer models found in saved data")
+                logger.info("No FT-Transformer models found in saved data. Available keys: " + 
+                           str(list(self.model_data.keys())))
         except Exception as e:
             logger.error(f"Failed to load model: {str(e)}")
             raise
@@ -39,64 +45,88 @@ class ModelLoader:
         """Load FT-Transformer models from saved state dicts"""
         self.ft_transformer_trainers = {}
         
-        for target, ft_data in self.model_data['ft_transformer_models'].items():
-            if ft_data is not None:
-                config = ft_data['model_config']
-                # Create model instance
-                model = FTTransformer(
-                    num_numerical=config['num_numerical'],
-                    num_categories=config['num_categories'],
-                    d_token=config['d_token'],
-                    n_layers=config['n_layers'],
-                    n_heads=config['n_heads'],
-                    d_ff=config['d_ff'],
-                    dropout=config['dropout']
-                ).to(self.device)
+        try:
+            if 'ft_transformer_models' not in self.model_data:
+                logger.warning("No 'ft_transformer_models' key found in model data")
+                return
+            
+            ft_models = self.model_data['ft_transformer_models']
+            if not ft_models:
+                logger.warning("ft_transformer_models dictionary is empty")
+                return
+            
+            for target, ft_data in ft_models.items():
+                if ft_data is None:
+                    logger.warning(f"FT-Transformer data for target '{target}' is None, skipping")
+                    continue
                 
-                # Load state dict
-                model.load_state_dict(ft_data['model_state_dict'])
-                model.eval()
-                
-                # Create trainer-like object for prediction
-                class FTModelWrapper:
-                    def __init__(self, model, scaler, device):
-                        self.model = model
-                        self.numerical_scaler = scaler
-                        self.device = device
+                try:
+                    config = ft_data['model_config']
+                    # Create model instance
+                    model = FTTransformer(
+                        num_numerical=config['num_numerical'],
+                        num_categories=config['num_categories'],
+                        d_token=config['d_token'],
+                        n_layers=config['n_layers'],
+                        n_heads=config['n_heads'],
+                        d_ff=config['d_ff'],
+                        dropout=config['dropout']
+                    ).to(self.device)
                     
-                    def predict(self, X_numerical, X_categorical):
-                        self.model.eval()
+                    # Load state dict
+                    model.load_state_dict(ft_data['model_state_dict'])
+                    model.eval()
+                    
+                    # Create trainer-like object for prediction
+                    class FTModelWrapper:
+                        def __init__(self, model, scaler, device):
+                            self.model = model
+                            self.numerical_scaler = scaler
+                            self.device = device
                         
-                        # Convert to numpy if needed
-                        if isinstance(X_numerical, pd.DataFrame):
-                            X_numerical = X_numerical.values
-                        if isinstance(X_categorical, pd.DataFrame):
-                            X_categorical = X_categorical.values
-                        
-                        # Scale numerical features
-                        if X_numerical is not None and len(X_numerical) > 0:
-                            X_numerical = self.numerical_scaler.transform(X_numerical)
-                        
-                        # Convert to tensors
-                        if X_numerical is not None and len(X_numerical) > 0:
-                            X_num_tensor = torch.FloatTensor(X_numerical).to(self.device)
-                        else:
-                            X_num_tensor = None
-                        
-                        if X_categorical is not None and len(X_categorical) > 0:
-                            X_cat_tensor = torch.LongTensor(X_categorical).to(self.device)
-                        else:
-                            X_cat_tensor = None
-                        
-                        with torch.no_grad():
-                            predictions = self.model(X_num_tensor, X_cat_tensor)
-                        
-                        return predictions.cpu().numpy().flatten()
-                
-                self.ft_transformer_trainers[target] = FTModelWrapper(
-                    model, ft_data['numerical_scaler'], self.device
-                )
-                logger.info(f"FT-Transformer model loaded for target: {target}")
+                        def predict(self, X_numerical, X_categorical):
+                            self.model.eval()
+                            
+                            # Convert to numpy if needed
+                            if isinstance(X_numerical, pd.DataFrame):
+                                X_numerical = X_numerical.values
+                            if isinstance(X_categorical, pd.DataFrame):
+                                X_categorical = X_categorical.values
+                            
+                            # Scale numerical features
+                            if X_numerical is not None and len(X_numerical) > 0:
+                                X_numerical = self.numerical_scaler.transform(X_numerical)
+                            
+                            # Convert to tensors
+                            if X_numerical is not None and len(X_numerical) > 0:
+                                X_num_tensor = torch.FloatTensor(X_numerical).to(self.device)
+                            else:
+                                X_num_tensor = None
+                            
+                            if X_categorical is not None and len(X_categorical) > 0:
+                                X_cat_tensor = torch.LongTensor(X_categorical).to(self.device)
+                            else:
+                                X_cat_tensor = None
+                            
+                            with torch.no_grad():
+                                predictions = self.model(X_num_tensor, X_cat_tensor)
+                            
+                            return predictions.cpu().numpy().flatten()
+                    
+                    self.ft_transformer_trainers[target] = FTModelWrapper(
+                        model, ft_data['numerical_scaler'], self.device
+                    )
+                    logger.info(f"FT-Transformer model loaded successfully for target: {target}")
+                except Exception as e:
+                    logger.error(f"Failed to load FT-Transformer model for target '{target}': {str(e)}")
+                    logger.error(f"Error details: {type(e).__name__}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    continue
+        except Exception as e:
+            logger.error(f"Error loading FT-Transformer models: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
     
     def reload_model(self):
         """Reload model (called after retraining)"""
@@ -138,10 +168,18 @@ class ModelLoader:
         if model_type in ['ft_transformer', 'ensemble']:
             # Check if FT-Transformer models are available
             if not hasattr(self, 'ft_transformer_trainers') or 'delta' not in self.ft_transformer_trainers:
+                error_msg = "FT-Transformer model not available. "
+                if not hasattr(self, 'ft_transformer_trainers'):
+                    error_msg += "Model trainers not initialized. "
+                elif 'delta' not in self.ft_transformer_trainers:
+                    error_msg += f"Model for 'delta' target not found. Available targets: {list(getattr(self, 'ft_transformer_trainers', {}).keys())}. "
+                error_msg += "Please train the model first using /train_model/ endpoint."
+                
                 if model_type == 'ft_transformer':
-                    raise ValueError("FT-Transformer model not available")
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
                 # If ensemble and FT-Transformer not available, use only XGBoost
-                logger.warning("FT-Transformer not available, using only XGBoost")
+                logger.warning(f"FT-Transformer not available, using only XGBoost. {error_msg}")
                 return predictions if predictions else xgb_pred
             
             # Prepare features for FT-Transformer
@@ -159,13 +197,14 @@ class ModelLoader:
             predictions['ft_transformer'] = ft_pred[0] if len(ft_pred) > 0 else 0.0
         
         # Ensemble: average predictions
-        if model_type == 'ensemble' and 'xgb' in predictions and 'ft_transformer' in predictions:
-            predictions['delta'] = (predictions['xgb'] + predictions['ft_transformer']) / 2.0
-        elif model_type == 'ensemble' and 'xgb' in predictions:
-            predictions['delta'] = predictions['xgb']
-        elif model_type == 'ensemble' and 'ft_transformer' in predictions:
-            predictions['delta'] = predictions['ft_transformer']
+        if model_type == 'ensemble':
+            if 'xgb' in predictions and 'ft_transformer' in predictions:
+                predictions['delta'] = (predictions['xgb'] + predictions['ft_transformer']) / 2.0
+            elif 'xgb' in predictions:
+                predictions['delta'] = predictions['xgb']
+            elif 'ft_transformer' in predictions:
+                predictions['delta'] = predictions['ft_transformer']
         
-        # Return in expected format
-        return {'delta': predictions.get('delta', 0.0)}
+        # Return in expected format (always return 'delta' key)
+        return {'delta': predictions.get('delta', predictions.get('xgb', predictions.get('ft_transformer', 0.0)))}
     
