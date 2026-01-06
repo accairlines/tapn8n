@@ -17,7 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . . 
 
 # Create directories
-RUN mkdir -p /app/logs /app/data && touch /app/logs/run_train.log
+RUN mkdir -p /app/logs /app/data 
+RUN touch /app/logs/run_train.log
 
 # Copy automation scripts
 COPY system/run_train.sh /app/system/run_train.sh
