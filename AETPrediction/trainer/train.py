@@ -168,7 +168,7 @@ def load_data():
     folders_paths = []
     
     for root, dirs, files in os.walk(DATA_PATH):
-        if 'cache' in root:
+        if 'cache' in root or 'emails' in root:
             continue
         folders_paths.append(root)
         logging.info(f"Processing files for path{str(root)}")
@@ -581,8 +581,10 @@ def save_models(models, scaler, metrics, ft_transformer_models=None, ft_transfor
 
 def extract_targetsfeatures_from_flights(flights):
     """Extract features DataFrame from enriched flights list, flattening selected flight, selected flight_plan fields, selected equipment fields, up to 50 relevant waypoint features, and up to 20 acars features."""
-    # Now build features DataFrame
-    data = []
+    # Process in batches to avoid memory exhaustion
+    BATCH_SIZE = 10000
+    all_features = []
+    all_targets = []
     
     # Define required columns for each file type
     flights_cols = flights_cols_all
@@ -592,60 +594,94 @@ def extract_targetsfeatures_from_flights(flights):
     acars_cols = acars_cols_all
     equipments_cols = equipments_cols_all
     
+    # Filter flights with flight_plan first
+    flights_with_fp = [f for f in flights if f.get('flight_plan')]
+    total_flights = len(flights_with_fp)
+    logging.info(f"Processing {total_flights} flights in batches of {BATCH_SIZE}")
+    
+    if total_flights == 0:
+        logging.warning("No flights with flight_plan found, returning empty DataFrames")
+        return pd.DataFrame(), pd.DataFrame()
+    
     """Extract targets DataFrame from enriched flights list."""
-    for flight in flights:
-        if not flight.get('flight_plan'):
-            continue  # Only include if flight_plan is present
-        row = {}
-        # Add only selected flight fields
-        for k in flights_cols:
-            v = flight.get(k)
-            if not isinstance(v, (dict, list)):
-                row[k] = v
-        # Add only selected flight_plan fields, prefixed with 'fp_'
-        for k in flight_plan_cols:
-            v = flight['flight_plan'].get(k)
-            if not isinstance(v, (dict, list)):
-                row[f'fp_{k}'] = v
-        # Add selected equipment fields, prefixed with 'eq_'
-        eq = flight.get('equipment')
-        if eq:
-            for ek in equipments_cols:
-                row[f'eq_{ek}'] = eq.get(ek)
-        # Add up to 50 waypoints with ALTITUDE > 299, extracting 3 fields
-        waypoints = [wp for wp in (flight.get('waypoints') or []) if wp.get('ALTITUDE') is not None and float(wp.get('ALTITUDE', 0)) > 299]
-        for i in range(50):
-            if i < len(waypoints):
-                wp = waypoints[i]
-                for f in waypoints_cols:
-                    row[f'wp{i+1}_{f}'] = wp.get(f)
-            else:
-                for f in waypoints_cols:
-                    row[f'wp{i+1}_{f}'] = None
-        # Add up to 20 acars, extracting WINDDIRECTION and WINDSPEED
-        acars_list = flight.get('acars') or []
-        for i in range(20):
-            if i < len(acars_list):
-                ac = acars_list[i]
-                for f in acars_cols:
-                    row[f'acars{i+1}_{f}'] = ac.get(f)
-            else:
-                for f in acars_cols:
-                    row[f'acars{i+1}_{f}'] = None
-        row['actual_taxi_out'] = flight.get('actual_taxi_out')
-        row['actual_airborne'] = flight.get('actual_airborne')
-        row['actual_taxi_in'] = flight.get('actual_taxi_in')
-        row['actual_total_time'] = flight.get('actual_total_time')
-        row['planned_taxi_out'] = flight.get('planned_taxi_out')
-        row['planned_airborne'] = flight.get('planned_airborne')
-        row['planned_taxi_in'] = flight.get('planned_taxi_in')
-        row['planned_total_time'] = flight.get('planned_total_time')
-        row['AET'] = flight.get('AET')
-        row['EET'] = flight.get('EET')
-        row['delta'] = flight.get('actual_delta')
-        data.append(row)
-    feactures_processed, targets_processed = preprocess_flight_data(data)
-    return feactures_processed, targets_processed
+    for batch_start in range(0, total_flights, BATCH_SIZE):
+        batch_end = min(batch_start + BATCH_SIZE, total_flights)
+        batch_flights = flights_with_fp[batch_start:batch_end]
+        logging.info(f"Processing batch {batch_start//BATCH_SIZE + 1}: flights {batch_start} to {batch_end-1}")
+        
+        data = []
+        for flight in batch_flights:
+            row = {}
+            # Add only selected flight fields
+            for k in flights_cols:
+                v = flight.get(k)
+                if not isinstance(v, (dict, list)):
+                    row[k] = v
+            # Add only selected flight_plan fields, prefixed with 'fp_'
+            for k in flight_plan_cols:
+                v = flight['flight_plan'].get(k)
+                if not isinstance(v, (dict, list)):
+                    row[f'fp_{k}'] = v
+            # Add selected equipment fields, prefixed with 'eq_'
+            eq = flight.get('equipment')
+            if eq:
+                for ek in equipments_cols:
+                    row[f'eq_{ek}'] = eq.get(ek)
+            # Add up to 50 waypoints with ALTITUDE > 299, extracting 3 fields
+            waypoints = [wp for wp in (flight.get('waypoints') or []) if wp.get('ALTITUDE') is not None and float(wp.get('ALTITUDE', 0)) > 299]
+            for i in range(50):
+                if i < len(waypoints):
+                    wp = waypoints[i]
+                    for f in waypoints_cols:
+                        row[f'wp{i+1}_{f}'] = wp.get(f)
+                else:
+                    for f in waypoints_cols:
+                        row[f'wp{i+1}_{f}'] = None
+            # Add up to 20 acars, extracting WINDDIRECTION and WINDSPEED
+            acars_list = flight.get('acars') or []
+            for i in range(20):
+                if i < len(acars_list):
+                    ac = acars_list[i]
+                    for f in acars_cols:
+                        row[f'acars{i+1}_{f}'] = ac.get(f)
+                else:
+                    for f in acars_cols:
+                        row[f'acars{i+1}_{f}'] = None
+            row['actual_taxi_out'] = flight.get('actual_taxi_out')
+            row['actual_airborne'] = flight.get('actual_airborne')
+            row['actual_taxi_in'] = flight.get('actual_taxi_in')
+            row['actual_total_time'] = flight.get('actual_total_time')
+            row['planned_taxi_out'] = flight.get('planned_taxi_out')
+            row['planned_airborne'] = flight.get('planned_airborne')
+            row['planned_taxi_in'] = flight.get('planned_taxi_in')
+            row['planned_total_time'] = flight.get('planned_total_time')
+            row['AET'] = flight.get('AET')
+            row['EET'] = flight.get('EET')
+            row['delta'] = flight.get('actual_delta')
+            data.append(row)
+        
+        # Process batch and append to results
+        batch_features, batch_targets = preprocess_flight_data(data)
+        all_features.append(batch_features)
+        all_targets.append(batch_targets)
+        
+        # Clear batch data to free memory
+        del data, batch_features, batch_targets
+        
+    # Concatenate all batches
+    logging.info("Concatenating all batches...")
+    if len(all_features) == 0:
+        logging.warning("No features extracted, returning empty DataFrames")
+        return pd.DataFrame(), pd.DataFrame()
+    
+    features_processed = pd.concat(all_features, ignore_index=True)
+    targets_processed = pd.concat(all_targets, ignore_index=True)
+    logging.info(f"Successfully processed {len(features_processed)} flights into features and targets")
+    
+    # Clear intermediate lists
+    del all_features, all_targets
+    
+    return features_processed, targets_processed
 
 
 def get_cache_paths(cache_type='current'):
