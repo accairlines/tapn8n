@@ -122,7 +122,7 @@ def train_model(request):
         # Append new data to cached data if it exists
         if len(new_features) == 0:
             logging.info("Nothing to process as features are empty")
-            return 0
+            return JsonResponse({'result': True, 'message': 'No new data to process'})
         elif cached_features is not None and cached_targets is not None:
             logging.info("Appending new data to existing cached data...")
             features = pd.concat([cached_features, new_features], ignore_index=True)
