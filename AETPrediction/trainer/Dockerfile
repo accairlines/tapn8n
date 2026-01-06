@@ -24,7 +24,7 @@ RUN chmod +x /app/system/run_train.sh
 RUN mkdir -p /app/logs /app/data /var/log && touch /var/log/run_train.log
 
 # Register cron job to run every 12 hours
-RUN (crontab -l 2>/dev/null; echo "0 */12 * * * bash /app/system/run_train.sh >> /var/log/run_train.log 2>&1") | crontab -
+RUN (crontab -l 2>/dev/null; echo "0 */12 * * * bash /app/system/run_train.sh >> /var/logs/run_train.log 2>&1") | crontab -
 
 # Start cron daemon and stream logs to keep container alive
 CMD ["bash", "-c", "cron && tail -f /var/log/run_train.log"]
