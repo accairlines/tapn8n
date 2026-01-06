@@ -29,11 +29,10 @@ class Tokenizer(nn.Module):
         
         # Categorical feature tokenizer (embedding)
         if num_categories > 0:
-            # We'll use a large embedding size and project down
-            # For simplicity, we'll use a single embedding table with max categories
-            # In practice, each categorical feature should have its own embedding
+            # Reduced embedding size to save memory
+            # Using smaller vocab size (10000 instead of 1000000)
             self.category_embeddings = nn.ModuleList([
-                nn.Embedding(1000000, d_token)  # Large vocab size for hash-based encoding
+                nn.Embedding(10000, d_token)  # Reduced vocab size to save memory
                 for _ in range(num_categories)
             ])
     
@@ -241,18 +240,18 @@ class FTTransformerTrainer:
         if self.num_numerical > 0:
             X_numerical = self.numerical_scaler.fit_transform(X_numerical)
         
-        # Convert to tensors
+        # Keep data on CPU to save memory, only move batches to device
         if self.num_numerical > 0:
-            X_num_tensor = torch.FloatTensor(X_numerical).to(self.device)
+            X_num_tensor = torch.FloatTensor(X_numerical)  # Keep on CPU
         else:
             X_num_tensor = None
         
         if self.num_categories > 0:
-            X_cat_tensor = torch.LongTensor(X_categorical).to(self.device)
+            X_cat_tensor = torch.LongTensor(X_categorical)  # Keep on CPU
         else:
             X_cat_tensor = None
         
-        y_tensor = torch.FloatTensor(y).to(self.device).unsqueeze(1)
+        y_tensor = torch.FloatTensor(y).unsqueeze(1)  # Keep on CPU
         
         # Training loop
         self.model.train()
@@ -266,25 +265,24 @@ class FTTransformerTrainer:
         for epoch in range(self.n_epochs):
             epoch_loss = 0.0
             
-            # Shuffle data
-            indices = torch.randperm(n_samples).to(self.device)
-            if X_num_tensor is not None:
-                X_num_shuffled = X_num_tensor[indices]
-            else:
-                X_num_shuffled = None
-            if X_cat_tensor is not None:
-                X_cat_shuffled = X_cat_tensor[indices]
-            else:
-                X_cat_shuffled = None
-            y_shuffled = y_tensor[indices]
+            # Shuffle data indices on CPU to save memory
+            indices = torch.randperm(n_samples)
             
             for batch_idx in range(n_batches):
                 start_idx = batch_idx * self.batch_size
                 end_idx = min(start_idx + self.batch_size, n_samples)
+                batch_indices = indices[start_idx:end_idx]
                 
-                batch_X_num = X_num_shuffled[start_idx:end_idx] if X_num_shuffled is not None else None
-                batch_X_cat = X_cat_shuffled[start_idx:end_idx] if X_cat_shuffled is not None else None
-                batch_y = y_shuffled[start_idx:end_idx]
+                # Only move batch to device, not entire dataset
+                if X_num_tensor is not None:
+                    batch_X_num = X_num_tensor[batch_indices].to(self.device)
+                else:
+                    batch_X_num = None
+                if X_cat_tensor is not None:
+                    batch_X_cat = X_cat_tensor[batch_indices].to(self.device)
+                else:
+                    batch_X_cat = None
+                batch_y = y_tensor[batch_indices].to(self.device)
                 
                 # Forward pass
                 self.optimizer.zero_grad()
@@ -296,6 +294,11 @@ class FTTransformerTrainer:
                 self.optimizer.step()
                 
                 epoch_loss += loss.item()
+                
+                # Clear batch tensors to free memory
+                del batch_X_num, batch_X_cat, batch_y, predictions, loss
+                if self.device.type == 'cuda':
+                    torch.cuda.empty_cache()
             
             avg_loss = epoch_loss / n_batches
             
