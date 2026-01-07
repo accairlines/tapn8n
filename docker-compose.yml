@@ -59,13 +59,6 @@ services:
     networks:
       - trainer_network
     container_name: trainer
-    deploy:
-      resources:
-        limits:
-          memory: 8G      # Adjust based on your system (4G, 8G, 16G, etc.)
-          cpus: '4'       # Adjust based on your CPU cores
-        reservations:
-          memory: 4G      # Minimum memory guarantee
     
   predictor:
     build: ./AETPrediction/predictor
