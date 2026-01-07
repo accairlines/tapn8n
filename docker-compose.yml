@@ -51,8 +51,11 @@ services:
       - /var/data:/app/data
       - /var/log/docker/trainer:/app/logs
       - /var/models:/app/models
-    env_file:
-      - ./AETPrediction/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - AET_DATA_PATH=/app/data
+      - AET_LOG_PATH=/app/logs
+      - AET_MODEL_PATH=/app/models
     networks:
       - trainer_network
     container_name: trainer

@@ -8,7 +8,7 @@ COPY ./nginx.conf /etc/nginx/nginx.conf
 COPY ./ssl /usr/share/ssl
 
 # Copy .htpasswd for /llama authentication
-COPY ./secrets/.htpasswd /etc/nginx/.htpasswd
+COPY ./htpasswd /etc/nginx/.htpasswd
 
 # Expose standard HTTP(S) ports
 EXPOSE 80 443
