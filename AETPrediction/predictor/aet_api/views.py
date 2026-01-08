@@ -11,7 +11,6 @@ from .db_extractor import get_flight_hist_aeteet
 from django.conf import settings
 import pandas as pd
 import traceback
-import aet_api.train as train
 
 logger = logging.getLogger(__name__)
 
@@ -83,85 +82,6 @@ def predict_flight(request, flight_id):
         prediction = None
         hist_aeteet = None
 
-@csrf_exempt
-def train_model(request):
-    """Train the model"""
-    logging.info("=== Starting montlhy training ===")
-    
-    try:
-        # Load cached data if it exists
-        cached_features, cached_targets = train.load_features_targets_from_csv()
-        
-        # Always process new data
-        logging.info("=== Loading Data ===")
-        flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations, folders_paths = train.load_data()
-        logging.info("=== Loading Data Completed ===")
-                
-        # Prepare training data
-        logging.info("=== Preparing Training Data ===")
-        flights = train.prepare_training_data(
-            flights, flight_plan, waypoints, mel, acars, equipments, aircrafts, stations
-        )
-        logging.info("=== Preparing Training Data Completed ===")
-        
-        # Remove flights with no flight_plan
-        logging.info("=== Removing Flights with No Flight Plan ===")
-        flights = [flight for flight in flights if flight.get('flight_plan')]
-        logging.info("=== Removing Flights with No Flight Plan Completed ===")
-        
-        # Calculate actual times
-        logging.info("=== Calculating Actual Times ===")
-        flights = train.calculate_planned_actual_times(flights)
-        logging.info("=== Calculating Actual Times Completed ===")
-
-        # Extract targets and features from new data
-        logging.info("=== Extracting Targets and Features ===")
-        new_features, new_targets = train.extract_targetsfeatures_from_flights(flights)
-        logging.info("=== Extracting Targets and Features Completed ===")
-        
-        # Append new data to cached data if it exists
-        if len(new_features) == 0:
-            logging.info("Nothing to process as features are empty")
-            return JsonResponse({'result': True, 'message': 'No new data to process'})
-        elif cached_features is not None and cached_targets is not None:
-            logging.info("Appending new data to existing cached data...")
-            features = pd.concat([cached_features, new_features], ignore_index=True)
-            targets = pd.concat([cached_targets, new_targets], ignore_index=True)
-            logging.info(f"Combined dataset - Features: {features.shape}, Targets: {targets.shape}")
-        else:
-            logging.info("No cached data found, using only new data")
-            features, targets = new_features, new_targets
-        
-        # Save combined features and targets to CSV for caching
-        logging.info(f"Features: {features.shape}, Targets: {targets.shape}")
-        logging.info("=== Saving Combined Features and Targets to CSV ===")
-        train.save_features_targets_to_csv(features, targets)
-        logging.info("=== Saving Combined Features and Targets to CSV Completed ===")
-
-        # Rename CSV files to .done
-        logging.info("=== Renaming CSV Files to .done ===")
-        train.rename_csv_files_to_done(folders_paths)
-        logging.info("=== Renaming CSV Files to .done Completed ===")
-                
-        # Train models
-        logging.info("=== Training Models ===")
-        models, scaler, metrics, ft_transformer_models, ft_transformer_metrics = train.train_models(features, targets)
-        logging.info("=== Training Models Completed ===")
-        
-        # Save models
-        logging.info("=== Saving Models ===")
-        train.save_models(models, scaler, metrics, ft_transformer_models, ft_transformer_metrics)
-        logging.info("=== Saving Models Completed ===")
-        
-        # Log completion
-        logging.info("=== Training completed successfully ===")
-        return JsonResponse({'result': True})
-    except Exception as e:
-        error = e.args[0]
-        logging.error(''.join(traceback.format_exception(type(e), e, e.__traceback__)))
-        return JsonResponse({'result': False, 'error': str(e)})
-    
-    
 def get_flight_data(flight_id):
     """Get flight data for prediction - returns dictionary format expected by model"""
     try:
