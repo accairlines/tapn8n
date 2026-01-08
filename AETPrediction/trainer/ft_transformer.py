@@ -67,7 +67,13 @@ class Tokenizer(nn.Module):
                 tokens.append(cat_tokens)
         
         if tokens:
-            return torch.cat(tokens, dim=1)  # (batch_size, num_features, d_token)
+            result = torch.cat(tokens, dim=1)  # (batch_size, num_features, d_token)
+            if result.size(1) == 0:
+                raise ValueError(
+                    f"Tokenized sequence has 0 length. "
+                    f"num_numerical={self.num_numerical}, num_categories={self.num_categories}"
+                )
+            return result
         else:
             raise ValueError("No features provided")
 
@@ -77,6 +83,12 @@ class TransformerBlock(nn.Module):
     
     def __init__(self, d_token, n_heads, d_ff, dropout=0.1):
         super().__init__()
+        # Validate that d_token is divisible by n_heads
+        if d_token % n_heads != 0:
+            raise ValueError(
+                f"d_token ({d_token}) must be divisible by n_heads ({n_heads}). "
+                f"Current division: {d_token / n_heads}"
+            )
         self.attention = nn.MultiheadAttention(d_token, n_heads, dropout=dropout, batch_first=True)
         self.ff = nn.Sequential(
             nn.Linear(d_token, d_ff),
@@ -90,7 +102,13 @@ class TransformerBlock(nn.Module):
     
     def forward(self, x):
         # Pre-norm architecture
-        x = x + self.attention(self.norm1(x), self.norm1(x), self.norm1(x))[0]
+        # Validate input shape
+        if x.size(1) == 0:
+            raise ValueError(f"Sequence length is 0. Input shape: {x.shape}")
+        
+        normalized = self.norm1(x)
+        attn_output, _ = self.attention(normalized, normalized, normalized)
+        x = x + attn_output
         x = x + self.ff(self.norm2(x))
         return x
 
@@ -151,21 +169,47 @@ class FTTransformer(nn.Module):
         Returns:
             output: (batch_size, 1)
         """
+        logger.debug(f"Forward pass - x_numerical: {x_numerical.shape if x_numerical is not None else None}, "
+                    f"x_categorical: {x_categorical.shape if x_categorical is not None else None}")
+        
         # Tokenize features
-        tokens = self.tokenizer(x_numerical, x_categorical)  # (batch_size, num_features, d_token)
+        try:
+            tokens = self.tokenizer(x_numerical, x_categorical)  # (batch_size, num_features, d_token)
+            logger.debug(f"Tokenized features shape: {tokens.shape}")
+        except Exception as e:
+            logger.error(f"Error in tokenizer: {str(e)}")
+            raise
+        
+        # Validate tokenized output
+        if tokens.size(1) == 0:
+            raise ValueError(
+                f"Tokenized features have 0 length. "
+                f"x_numerical shape: {x_numerical.shape if x_numerical is not None else None}, "
+                f"x_categorical shape: {x_categorical.shape if x_categorical is not None else None}"
+            )
         
         # Add CLS token
         batch_size = tokens.size(0)
         cls_tokens = self.cls_token.expand(batch_size, -1, -1)
         x = torch.cat([cls_tokens, tokens], dim=1)  # (batch_size, num_features + 1, d_token)
+        logger.debug(f"After adding CLS token, shape: {x.shape}")
         
         # Apply transformer blocks
-        for block in self.transformer_blocks:
-            x = block(x)
+        for i, block in enumerate(self.transformer_blocks):
+            try:
+                logger.debug(f"Applying transformer block {i + 1}/{len(self.transformer_blocks)}")
+                x = block(x)
+                logger.debug(f"After block {i + 1}, shape: {x.shape}")
+            except Exception as e:
+                logger.error(f"Error in transformer block {i + 1}: {str(e)}")
+                logger.error(f"  Input shape to block: {x.shape}")
+                raise
         
         # Extract CLS token and predict
         cls_output = x[:, 0, :]  # (batch_size, d_token)
+        logger.debug(f"CLS token output shape: {cls_output.shape}")
         output = self.head(self.norm(cls_output))  # (batch_size, 1)
+        logger.debug(f"Final output shape: {output.shape}")
         
         return output
 
@@ -207,6 +251,7 @@ class FTTransformerTrainer:
         logger.info(f"Using device: {self.device}")
         
         # Initialize model
+        logger.info(f"Initializing FT-Transformer model with {num_numerical} numerical and {num_categories} categorical features...")
         self.model = FTTransformer(
             num_numerical=num_numerical,
             num_categories=num_categories,
@@ -216,6 +261,11 @@ class FTTransformerTrainer:
             d_ff=d_ff,
             dropout=dropout
         ).to(self.device)
+        
+        # Count model parameters
+        total_params = sum(p.numel() for p in self.model.parameters())
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        logger.info(f"Model initialized. Total parameters: {total_params:,}, Trainable: {trainable_params:,}")
         
         # Optimizer and loss
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, weight_decay=1e-5)
@@ -227,8 +277,12 @@ class FTTransformerTrainer:
     def train(self, X_numerical, X_categorical, y):
         """Train the model"""
         logger.info("Training FT-Transformer...")
+        logger.info(f"Model configuration: d_token={self.d_token}, n_layers={self.n_layers}, "
+                   f"n_heads={self.n_heads}, d_ff={self.d_ff}, batch_size={self.batch_size}, "
+                   f"n_epochs={self.n_epochs}")
         
         # Convert to numpy if needed
+        logger.info("Converting input data to numpy arrays...")
         if isinstance(X_numerical, pd.DataFrame):
             X_numerical = X_numerical.values
         if isinstance(X_categorical, pd.DataFrame):
@@ -236,84 +290,120 @@ class FTTransformerTrainer:
         if isinstance(y, pd.Series) or isinstance(y, pd.DataFrame):
             y = y.values.flatten()
         
+        logger.info(f"Input shapes - X_numerical: {X_numerical.shape if X_numerical is not None else None}, "
+                   f"X_categorical: {X_categorical.shape if X_categorical is not None else None}, "
+                   f"y: {y.shape}")
+        
         # Scale numerical features
         if self.num_numerical > 0:
+            logger.info("Scaling numerical features...")
             X_numerical = self.numerical_scaler.fit_transform(X_numerical)
+            logger.info("Numerical features scaled successfully")
         
         # Keep data on CPU to save memory, only move batches to device
+        logger.info("Converting data to tensors...")
         if self.num_numerical > 0:
             X_num_tensor = torch.FloatTensor(X_numerical)  # Keep on CPU
+            logger.info(f"Created numerical tensor with shape: {X_num_tensor.shape}")
         else:
             X_num_tensor = None
+            logger.info("No numerical features to convert")
         
         if self.num_categories > 0:
             X_cat_tensor = torch.LongTensor(X_categorical)  # Keep on CPU
+            logger.info(f"Created categorical tensor with shape: {X_cat_tensor.shape}")
         else:
             X_cat_tensor = None
+            logger.info("No categorical features to convert")
         
         y_tensor = torch.FloatTensor(y).unsqueeze(1)  # Keep on CPU
+        logger.info(f"Created target tensor with shape: {y_tensor.shape}")
         
         # Training loop
+        logger.info("Starting training loop...")
         self.model.train()
         n_samples = len(y)
         n_batches = (n_samples + self.batch_size - 1) // self.batch_size
+        
+        logger.info(f"Training setup: {n_samples} samples, {n_batches} batches per epoch")
         
         best_loss = float('inf')
         patience = 10
         patience_counter = 0
         
         for epoch in range(self.n_epochs):
+            logger.info(f"Starting epoch {epoch + 1}/{self.n_epochs}")
             epoch_loss = 0.0
             
             # Shuffle data indices on CPU to save memory
             indices = torch.randperm(n_samples)
             
             for batch_idx in range(n_batches):
-                start_idx = batch_idx * self.batch_size
-                end_idx = min(start_idx + self.batch_size, n_samples)
-                batch_indices = indices[start_idx:end_idx]
-                
-                # Only move batch to device, not entire dataset
-                if X_num_tensor is not None:
-                    batch_X_num = X_num_tensor[batch_indices].to(self.device)
-                else:
-                    batch_X_num = None
-                if X_cat_tensor is not None:
-                    batch_X_cat = X_cat_tensor[batch_indices].to(self.device)
-                else:
-                    batch_X_cat = None
-                batch_y = y_tensor[batch_indices].to(self.device)
-                
-                # Forward pass
-                self.optimizer.zero_grad()
-                predictions = self.model(batch_X_num, batch_X_cat)
-                loss = self.criterion(predictions, batch_y)
-                
-                # Backward pass
-                loss.backward()
-                self.optimizer.step()
-                
-                epoch_loss += loss.item()
-                
-                # Clear batch tensors to free memory
-                del batch_X_num, batch_X_cat, batch_y, predictions, loss
-                if self.device.type == 'cuda':
-                    torch.cuda.empty_cache()
+                try:
+                    start_idx = batch_idx * self.batch_size
+                    end_idx = min(start_idx + self.batch_size, n_samples)
+                    batch_indices = indices[start_idx:end_idx]
+                    
+                    if (batch_idx + 1) % max(1, n_batches // 10) == 0 or batch_idx == 0:
+                        logger.info(f"  Processing batch {batch_idx + 1}/{n_batches} (samples {start_idx}-{end_idx-1})")
+                    
+                    # Only move batch to device, not entire dataset
+                    if X_num_tensor is not None:
+                        batch_X_num = X_num_tensor[batch_indices].to(self.device)
+                        logger.debug(f"    Batch numerical shape: {batch_X_num.shape}")
+                    else:
+                        batch_X_num = None
+                    if X_cat_tensor is not None:
+                        batch_X_cat = X_cat_tensor[batch_indices].to(self.device)
+                        logger.debug(f"    Batch categorical shape: {batch_X_cat.shape}")
+                    else:
+                        batch_X_cat = None
+                    batch_y = y_tensor[batch_indices].to(self.device)
+                    logger.debug(f"    Batch target shape: {batch_y.shape}")
+                    
+                    # Forward pass
+                    logger.debug(f"    Starting forward pass...")
+                    self.optimizer.zero_grad()
+                    predictions = self.model(batch_X_num, batch_X_cat)
+                    logger.debug(f"    Predictions shape: {predictions.shape}")
+                    loss = self.criterion(predictions, batch_y)
+                    logger.debug(f"    Batch loss: {loss.item():.4f}")
+                    
+                    # Backward pass
+                    logger.debug(f"    Starting backward pass...")
+                    loss.backward()
+                    self.optimizer.step()
+                    logger.debug(f"    Backward pass completed")
+                    
+                    epoch_loss += loss.item()
+                    
+                    # Clear batch tensors to free memory
+                    del batch_X_num, batch_X_cat, batch_y, predictions, loss
+                    if self.device.type == 'cuda':
+                        torch.cuda.empty_cache()
+                        
+                except Exception as e:
+                    logger.error(f"Error in epoch {epoch + 1}, batch {batch_idx + 1}/{n_batches}")
+                    logger.error(f"  Batch indices: {start_idx}-{end_idx-1}")
+                    logger.error(f"  Batch numerical shape: {batch_X_num.shape if batch_X_num is not None else None}")
+                    logger.error(f"  Batch categorical shape: {batch_X_cat.shape if batch_X_cat is not None else None}")
+                    logger.error(f"  Error: {str(e)}", exc_info=True)
+                    raise
             
             avg_loss = epoch_loss / n_batches
+            logger.info(f"Epoch {epoch + 1}/{self.n_epochs} completed. Average loss: {avg_loss:.4f}")
             
             # Early stopping
             if avg_loss < best_loss:
                 best_loss = avg_loss
                 patience_counter = 0
+                logger.info(f"  New best loss: {best_loss:.4f}")
             else:
                 patience_counter += 1
+                logger.info(f"  Loss did not improve. Patience: {patience_counter}/{patience}")
                 if patience_counter >= patience:
-                    logger.info(f"Early stopping at epoch {epoch + 1}")
+                    logger.info(f"Early stopping triggered at epoch {epoch + 1}")
                     break
-            
-            if (epoch + 1) % 10 == 0:
-                logger.info(f"Epoch {epoch + 1}/{self.n_epochs}, Loss: {avg_loss:.4f}")
         
         logger.info(f"Training completed. Best loss: {best_loss:.4f}")
         return self.model, self.numerical_scaler
