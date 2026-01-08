@@ -344,8 +344,7 @@ class FTTransformerTrainer:
                     end_idx = min(start_idx + self.batch_size, n_samples)
                     batch_indices = indices[start_idx:end_idx]
                     
-                    if (batch_idx + 1) % max(1, n_batches // 10) == 0 or batch_idx == 0:
-                        logger.info(f"  Processing batch {batch_idx + 1}/{n_batches} (samples {start_idx}-{end_idx-1})")
+                    logger.info(f"  Processing batch {batch_idx + 1}/{n_batches} (samples {start_idx}-{end_idx-1})")
                     
                     # Only move batch to device, not entire dataset
                     if X_num_tensor is not None:
