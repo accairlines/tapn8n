@@ -20,8 +20,14 @@ COPY . .
 COPY system/run_train.sh /app/system/run_train.sh
 RUN chmod +x /app/system/run_train.sh
 
+# Create logs directory
+RUN mkdir -p /app/logs
+
 # Register cron job to run every 12 hours
-RUN (crontab -l 2>/dev/null; echo "0 * * * * bash /app/system/run_train.sh >> /app/logs/run_train.log 2>&1") | crontab -
+RUN (crontab -l 2>/dev/null; echo "0 0 * * * bash /app/system/run_train.sh >> /app/logs/run_train.log 2>&1") | crontab -
 
 # Start cron daemon and stream logs to keep container alive
-CMD ["bash", "-c", "cron && tail -f /app/logs/run_train.log"]
+# CMD ["bash", "-c", "cron && tail -f /app/logs/run_train.log"]
+
+# Start training immediately, then start cron daemon and stream logs to keep container alive
+CMD ["bash", "-c", "bash /app/system/run_train.sh >> /app/logs/run_train.log 2>&1 & cron && tail -f /app/logs/run_train.log"]
