@@ -42,8 +42,6 @@ services:
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
     volumes:
       - n8n_data:/home/node/.n8n
-    env_file:
-      - ./AETPrediction/.env
     networks:
       - n8n_network
          
@@ -53,6 +51,8 @@ services:
       - /var/data:/app/data
       - /var/log/docker/trainer:/app/logs
       - /var/models:/app/models
+    env_file:
+      - ./AETPrediction/.env
     environment:
       - PYTHONUNBUFFERED=1
       - AET_DATA_PATH=/app/data
