@@ -504,10 +504,10 @@ def train_models(features, targets):
             trainer = FTTransformerTrainer(
                 num_numerical=num_numerical,
                 num_categories=num_categories,
-                d_token=128,  # Reduced from 192 to save memory
-                n_layers=2,  # Reduced from 3 to save memory
+                d_token=192,  # Reduced from 192 to save memory
+                n_layers=3,  # Reduced from 3 to save memory
                 n_heads=4,  # Reduced from 8 to save memory
-                d_ff=384,  # Reduced from 768 to save memory
+                d_ff=768,  # Reduced from 768 to save memory
                 dropout=0.1,
                 learning_rate=1e-4,
                 batch_size=64,  # Reduced from 256 to save memory
